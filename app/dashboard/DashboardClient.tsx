@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Clock, CheckCheck, Filter,
   Download, Play, Pause, Volume2,
-  FileText, Mic, X, Inbox,
+  FileText, FileVideo, FileAudio, Mic, X, Inbox,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/layout/PageHeader';
@@ -256,12 +256,7 @@ function CurrentMessageCard({ message }: { message: Message }) {
       <div className="px-5 py-4">
         {message.content && <p className="text-[#F0EDE8] text-sm leading-relaxed">{message.content}</p>}
         {message.media_url && (
-          message.media_type === 'photo'
-            ? <img src={message.media_url} alt="attachment" className="rounded-xl max-h-40 object-cover w-full mt-2" />
-            : <a href={message.media_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[#9A9AB0] text-xs mt-2 hover:text-[#C9A84C]">
-                <FileText className="w-4 h-4" /> View attachment
-              </a>
+          <MediaAttachment url={message.media_url} type={message.media_type || 'document'} />
         )}
       </div>
       <div className="mx-5 mb-5 bg-[#12121A] border border-[#2A2A3E] rounded-xl px-4 py-3 flex items-center gap-2.5">
@@ -299,12 +294,9 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
         )}
         {message.content && <p className="text-[#F0EDE8] text-sm leading-relaxed">{message.content}</p>}
         {message.media_url && (
-          message.media_type === 'photo'
-            ? <img src={message.media_url} alt="" className="rounded-xl max-h-32 object-cover w-full mt-2" />
-            : <a href={message.media_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[#9A9AB0] text-xs mt-2 hover:text-[#C9A84C]">
-                <FileText className="w-3.5 h-3.5" /> View attachment
-              </a>
+          <div className="mt-2">
+            <MediaAttachment url={message.media_url} type={message.media_type || 'document'} />
+          </div>
         )}
       </div>
 
@@ -397,6 +389,57 @@ function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload }: {
         </button>
       </div>
     </div>
+  );
+}
+
+function MediaAttachment({ url, type }: { url: string; type: string }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (type === 'photo' && !imgError) {
+    return (
+      <div className="mt-2 rounded-xl overflow-hidden border border-[#2A2A3E]">
+        <img
+          src={url}
+          alt="attachment"
+          className="w-full max-h-48 object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+
+  const icons: Record<string, React.ReactNode> = {
+    video: <FileVideo className="w-4 h-4 text-[#C9A84C]" />,
+    audio: <FileAudio className="w-4 h-4 text-[#C9A84C]" />,
+    voice: <Mic className="w-4 h-4 text-[#C9A84C]" />,
+    document: <FileText className="w-4 h-4 text-[#C9A84C]" />,
+    photo: <FileText className="w-4 h-4 text-[#C9A84C]" />,
+  };
+
+  const labels: Record<string, string> = {
+    video: 'Video attachment',
+    audio: 'Audio attachment',
+    voice: 'Voice note',
+    document: 'Document',
+    photo: 'Image attachment',
+  };
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 flex items-center gap-2.5 bg-[#12121A] border border-[#2A2A3E] rounded-xl px-3 py-2.5 hover:border-[#C9A84C]/30 transition-colors group"
+    >
+      <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/10 flex items-center justify-center flex-shrink-0">
+        {icons[type] || <FileText className="w-4 h-4 text-[#C9A84C]" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[#F0EDE8] text-xs font-medium truncate">{labels[type] || 'Attachment'}</p>
+        <p className="text-[#5A5A72] text-[10px]">Tap to open</p>
+      </div>
+      <Download className="w-3.5 h-3.5 text-[#5A5A72] group-hover:text-[#C9A84C] transition-colors flex-shrink-0" />
+    </a>
   );
 }
 

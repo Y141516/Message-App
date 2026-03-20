@@ -240,8 +240,8 @@ INSERT INTO vachans (vachan_text, explanation_en, explanation_hi) VALUES
 -- ============================================================
 -- STORAGE BUCKETS (Run separately in Supabase Dashboard)
 -- ============================================================
--- 1. Create bucket: "message-media"  (public: false, max size: 50MB)
--- 2. Create bucket: "reply-audio"    (public: false, max size: 20MB)
+-- 1. Create bucket: "message-media"  (public: TRUE, max size: 50MB)
+-- 2. Create bucket: "reply-audio"    (public: TRUE, max size: 20MB)
 -- ============================================================
 
 -- ============================================================

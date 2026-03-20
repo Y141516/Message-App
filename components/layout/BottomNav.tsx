@@ -1,19 +1,24 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, MessageSquare, BookOpen, User } from 'lucide-react';
+import { Home, MessageSquare, BookOpen, User, LayoutDashboard } from 'lucide-react';
+import { useUserStore } from '@/store/userStore';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/dashboard', label: 'Messages', icon: MessageSquare },
-  { href: '/vachan', label: 'Vachan', icon: BookOpen },
-  { href: '/profile', label: 'Profile', icon: User },
-];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useUserStore();
+
+  const isLeader = user?.role === 'leader' || user?.role === 'admin';
+
+  const navItems = [
+    { href: '/home', label: 'Home', icon: Home },
+    { href: '/dashboard', label: 'Messages', icon: MessageSquare },
+    ...(isLeader ? [{ href: '/leader', label: 'Leader', icon: LayoutDashboard }] : []),
+    { href: '/vachan', label: 'Vachan', icon: BookOpen },
+    { href: '/profile', label: 'Profile', icon: User },
+  ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom">
@@ -25,7 +30,7 @@ export default function BottomNav() {
               <button
                 key={href}
                 onClick={() => router.push(href)}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5 px-2 rounded-xl transition-colors relative"
+                className="flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl transition-colors relative"
               >
                 {isActive && (
                   <motion.div
