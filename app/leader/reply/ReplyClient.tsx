@@ -117,7 +117,8 @@ export default function ReplyClient() {
       fd.append('reply_type', replyType);
       if (replyType === 'text') fd.append('content', textReply.trim());
       if (replyType === 'audio' && audioBlob) {
-        fd.append('audio', new File([audioBlob], 'reply.webm', { type: 'audio/webm' }));
+        const audioFile = new (window.File || Blob)([audioBlob], 'reply.webm', { type: 'audio/webm' }) as File;
+        fd.append('audio', audioFile);
       }
 
       const res = await fetch('/api/leader/reply', { method: 'POST', body: fd });

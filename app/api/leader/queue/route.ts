@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
       if (error) throw error;
 
       // Notify all users via Telegram bot
-      notifyAllUsers(leaderRow.display_name, limit).catch(() => {});
+      // Fire and forget — don't await so queue open response isn't delayed
+      void notifyAllUsers(leaderRow.display_name, limit);
 
       return NextResponse.json({ success: true, queue });
 
