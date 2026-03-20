@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Fetch ALL messages for this user with leader + reply info
-    const { data: messages, error } = await supabaseAdmin
+    // Step 1: Fetch all messages for this user with leader info
+    const { data: messages, error: msgError } = await supabaseAdmin
       .from('messages')
       .select(`
         id,
@@ -34,37 +34,63 @@ export async function GET(req: NextRequest) {
         is_emergency,
         is_replied,
         created_at,
+        leader_id,
         leaders(
           id,
           display_name,
           avatar_url
-        ),
-        replies(
-          id,
-          content,
-          audio_url,
-          reply_type,
-          created_at
         )
       `)
       .eq('sender_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (msgError) throw msgError;
 
-    // Split into current (latest unreplied) and history (all replied)
-    const unreplied = messages?.filter(m => !m.is_replied) ?? [];
-    const replied = messages?.filter(m => m.is_replied) ?? [];
+    if (!messages || messages.length === 0) {
+      return NextResponse.json({
+        currentMessage: null,
+        messages: [],
+        unreplied: [],
+        replied: [],
+      });
+    }
 
-    // Current message = latest unreplied
+    // Step 2: Fetch replies for all these messages separately
+    const messageIds = messages.map(m => m.id);
+    const { data: replies, error: replyError } = await supabaseAdmin
+      .from('replies')
+      .select(`
+        id,
+        message_id,
+        content,
+        audio_url,
+        reply_type,
+        created_at
+      `)
+      .in('message_id', messageIds);
+
+    if (replyError) throw replyError;
+
+    // Step 3: Build a map of message_id → reply
+    const replyMap = new Map((replies || []).map(r => [r.message_id, r]));
+
+    // Step 4: Merge replies into messages
+    const enriched = messages.map(m => ({
+      ...m,
+      replies: replyMap.get(m.id) ? [replyMap.get(m.id)] : [],
+    }));
+
+    const unreplied = enriched.filter(m => !m.is_replied);
+    const replied = enriched.filter(m => m.is_replied);
     const currentMessage = unreplied[0] ?? null;
 
     return NextResponse.json({
       currentMessage,
-      messages: messages ?? [],
+      messages: enriched,
       unreplied,
       replied,
     });
+
   } catch (error) {
     console.error('Dashboard error:', error);
     return NextResponse.json({ error: 'Failed to fetch dashboard' }, { status: 500 });

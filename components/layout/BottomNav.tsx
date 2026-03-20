@@ -5,27 +5,37 @@ import { Home, MessageSquare, BookOpen, User, LayoutDashboard } from 'lucide-rea
 import { useUserStore } from '@/store/userStore';
 import { cn } from '@/lib/utils';
 
+const USER_NAV = [
+  { href: '/home', label: 'Home', icon: Home },
+  { href: '/dashboard', label: 'Messages', icon: MessageSquare },
+  { href: '/vachan', label: 'Vachan', icon: BookOpen },
+  { href: '/profile', label: 'Profile', icon: User },
+];
+
+const LEADER_NAV = [
+  { href: '/leader', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/leader/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/profile', label: 'Profile', icon: User },
+];
+
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUserStore();
 
   const isLeader = user?.role === 'leader' || user?.role === 'admin';
-
-  const navItems = [
-    { href: '/home', label: 'Home', icon: Home },
-    { href: '/dashboard', label: 'Messages', icon: MessageSquare },
-    ...(isLeader ? [{ href: '/leader', label: 'Leader', icon: LayoutDashboard }] : []),
-    { href: '/vachan', label: 'Vachan', icon: BookOpen },
-    { href: '/profile', label: 'Profile', icon: User },
-  ];
+  const navItems = isLeader ? LEADER_NAV : USER_NAV;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom">
       <div className="mx-3 mb-3">
         <div className="bg-[#12121A]/95 backdrop-blur-xl border border-[#2A2A3E] rounded-2xl px-2 py-2 flex items-center justify-around shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || pathname.startsWith(href + '/');
+            // Active state: exact match for /leader, prefix match for others
+            const isActive = href === '/leader'
+              ? pathname === '/leader'
+              : pathname === href || pathname.startsWith(href + '/');
+
             return (
               <button
                 key={href}

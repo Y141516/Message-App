@@ -14,9 +14,10 @@ export default function RootPage() {
     if (!isReady) return;
 
     const authenticate = async () => {
-      // If user already in store and onboarding complete, go home
+      // If user already in store and onboarding complete, route by role
       if (user?.onboarding_complete) {
-        router.replace('/home');
+        const isLeader = user.role === 'leader' || user.role === 'admin';
+        router.replace(isLeader ? '/leader' : '/home');
         return;
       }
 
@@ -41,7 +42,6 @@ export default function RootPage() {
         setTelegramInitData(initData);
 
         if (data.isNewUser) {
-          // Pass data to onboarding via sessionStorage
           sessionStorage.setItem('onboarding_data', JSON.stringify({
             telegramUser: data.telegramUser,
             telegramId: data.telegramId,
@@ -50,7 +50,9 @@ export default function RootPage() {
           router.replace('/onboarding');
         } else {
           setUser(data.user);
-          router.replace('/home');
+          // Route by role
+          const isLeader = data.user.role === 'leader' || data.user.role === 'admin';
+          router.replace(isLeader ? '/leader' : '/home');
         }
       } catch (err) {
         console.error('Auth failed:', err);
