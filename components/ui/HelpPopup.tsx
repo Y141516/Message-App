@@ -160,3 +160,39 @@ export const HELP_CONTENT: Record<string, { title: string; steps: string[] }> = 
     ],
   },
 };
+
+// Admin help entries added separately
+export const ADMIN_HELP: Record<string, { title: string; steps: string[] }> = {
+  admin: {
+    title: 'Admin Panel',
+    steps: [
+      'Overview shows all key stats: users, messages, replies.',
+      'The 7-day chart shows message volume trends.',
+      '"Manage Users" lets you search all users, change roles, and activate/deactivate accounts.',
+      '"Manage Groups" lets you create internal groups and map Telegram groups to them.',
+      '"Manage Leaders" is a filtered view of all users with the leader role.',
+      'Data refreshes automatically every 30 seconds.',
+    ],
+  },
+  admin_users: {
+    title: 'Manage Users',
+    steps: [
+      'Search by name, city, or Telegram ID.',
+      'Filter by role: All, User, Leader, or Admin.',
+      'Tap any user to expand and see full details.',
+      'Use "Make leader" to promote a user — a leader profile is created automatically.',
+      'Use "Deactivate" to block a user from accessing the app.',
+      'Changes take effect immediately.',
+    ],
+  },
+  admin_groups: {
+    title: 'Manage Groups',
+    steps: [
+      'Internal Groups are the groups shown inside the app (e.g. BR Members, Sentinels).',
+      'Telegram Mappings connect a Telegram group to an internal group.',
+      'When a new user opens the app, the bot checks which Telegram groups they are in and assigns the matching internal group.',
+      'To find a Telegram Group ID: add the bot to the group, send a message, then visit api.telegram.org/bot{TOKEN}/getUpdates and look for the chat id.',
+      'The chat ID is a negative number like -1001234567890.',
+    ],
+  },
+};

@@ -1,7 +1,7 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, MessageSquare, BookOpen, User, LayoutDashboard } from 'lucide-react';
+import { Home, MessageSquare, BookOpen, User, LayoutDashboard, Settings } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,16 @@ export default function BottomNav() {
   const { user } = useUserStore();
   const { t } = useTheme();
 
-  const isLeader = user?.role === 'leader' || user?.role === 'admin';
+  const role = user?.role;
 
-  const navItems = isLeader
+  const navItems = role === 'admin'
+    ? [
+        { href: '/admin', label: 'Admin', icon: Settings, exact: true },
+        { href: '/admin/users', label: t('nav.messages'), icon: User, exact: false },
+        { href: '/admin/groups', label: 'Groups', icon: LayoutDashboard, exact: false },
+        { href: '/profile', label: t('nav.profile'), icon: User, exact: false },
+      ]
+    : role === 'leader'
     ? [
         { href: '/leader', label: t('nav.dashboard'), icon: LayoutDashboard, exact: true },
         { href: '/leader/messages', label: t('nav.messages'), icon: MessageSquare, exact: false },

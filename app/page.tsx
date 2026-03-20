@@ -16,8 +16,10 @@ export default function RootPage() {
     const authenticate = async () => {
       // If user already in store and onboarding complete, route by role
       if (user?.onboarding_complete) {
-        const isLeader = user.role === 'leader' || user.role === 'admin';
-        router.replace(isLeader ? '/leader' : '/home');
+        const role = user.role;
+        if (role === 'admin') router.replace('/admin');
+        else if (role === 'leader') router.replace('/leader');
+        else router.replace('/home');
         return;
       }
 
@@ -51,8 +53,10 @@ export default function RootPage() {
         } else {
           setUser(data.user);
           // Route by role
-          const isLeader = data.user.role === 'leader' || data.user.role === 'admin';
-          router.replace(isLeader ? '/leader' : '/home');
+          const role = data.user.role;
+          if (role === 'admin') router.replace('/admin');
+          else if (role === 'leader') router.replace('/leader');
+          else router.replace('/home');
         }
       } catch (err) {
         console.error('Auth failed:', err);
