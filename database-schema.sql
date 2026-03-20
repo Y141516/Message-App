@@ -300,3 +300,19 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER on_reply_sent
   AFTER INSERT ON replies
   FOR EACH ROW EXECUTE FUNCTION mark_message_replied();
+
+-- ============================================================
+-- PHASE 2 ADDITIONS
+-- Run these in Supabase SQL Editor if upgrading from Phase 1
+-- ============================================================
+
+-- Function to increment emergency count (upsert pattern)
+CREATE OR REPLACE FUNCTION increment_emergency_count(p_user_id UUID, p_date DATE)
+RETURNS VOID AS $$
+BEGIN
+  INSERT INTO emergency_daily_counts (user_id, date, count)
+  VALUES (p_user_id, p_date, 1)
+  ON CONFLICT (user_id, date)
+  DO UPDATE SET count = emergency_daily_counts.count + 1;
+END;
+$$ LANGUAGE plpgsql;
