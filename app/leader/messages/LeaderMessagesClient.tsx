@@ -8,6 +8,7 @@ import {
   CheckCheck, Clock,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
+import { usePolling } from '@/hooks/usePolling';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { cn, formatRelativeTime, getMessageTypeLabel, getEmergencyColor } from '@/lib/utils';
@@ -34,8 +35,13 @@ export default function LeaderMessagesClient() {
   useEffect(() => {
     if (!user) { router.replace('/'); return; }
     if (user.role !== 'leader' && user.role !== 'admin') { router.replace('/home'); return; }
-    setMessages([]); setPage(0); fetchMessages(0);
-  }, [tab, filterSort, filterType, filterCity, user]);
+  }, [user]);
+
+  usePolling(
+    () => { setMessages([]); setPage(0); fetchMessages(0); },
+    [tab, filterSort, filterType, filterCity, user?.telegram_id],
+    { interval: 10000, enabled: !!user }
+  );
 
   const fetchMessages = useCallback(async (pageNum = 0) => {
     setLoading(true);

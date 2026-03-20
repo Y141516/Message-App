@@ -3,63 +3,66 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Home, MessageSquare, BookOpen, User, LayoutDashboard } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
+import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
-
-const USER_NAV = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/dashboard', label: 'Messages', icon: MessageSquare },
-  { href: '/vachan', label: 'Vachan', icon: BookOpen },
-  { href: '/profile', label: 'Profile', icon: User },
-];
-
-const LEADER_NAV = [
-  { href: '/leader', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/leader/messages', label: 'Messages', icon: MessageSquare },
-  { href: '/profile', label: 'Profile', icon: User },
-];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUserStore();
+  const { t } = useTheme();
 
   const isLeader = user?.role === 'leader' || user?.role === 'admin';
-  const navItems = isLeader ? LEADER_NAV : USER_NAV;
+
+  const navItems = isLeader
+    ? [
+        { href: '/leader', label: t('nav.dashboard'), icon: LayoutDashboard, exact: true },
+        { href: '/leader/messages', label: t('nav.messages'), icon: MessageSquare, exact: false },
+        { href: '/profile', label: t('nav.profile'), icon: User, exact: false },
+      ]
+    : [
+        { href: '/home', label: t('nav.home'), icon: Home, exact: false },
+        { href: '/dashboard', label: t('nav.messages'), icon: MessageSquare, exact: false },
+        { href: '/vachan', label: t('nav.vachan'), icon: BookOpen, exact: false },
+        { href: '/profile', label: t('nav.profile'), icon: User, exact: false },
+      ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom">
       <div className="mx-3 mb-3">
-        <div className="bg-[#12121A]/95 backdrop-blur-xl border border-[#2A2A3E] rounded-2xl px-2 py-2 flex items-center justify-around shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            // Active state: exact match for /leader, prefix match for others
-            const isActive = href === '/leader'
-              ? pathname === '/leader'
-              : pathname === href || pathname.startsWith(href + '/');
-
+        <div
+          className="rounded-2xl px-2 py-2 flex items-center justify-around shadow-[0_8px_40px_rgba(0,0,0,0.3)]"
+          style={{
+            background: 'color-mix(in srgb, var(--bg-secondary) 95%, transparent)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          {navItems.map(({ href, label, icon: Icon, exact }) => {
+            const isActive = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'));
             return (
               <button
                 key={href}
                 onClick={() => router.push(href)}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl transition-colors relative"
+                className="flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl relative"
               >
                 {isActive && (
                   <motion.div
                     layoutId="nav-active"
-                    className="absolute inset-0 bg-[#C9A84C]/10 rounded-xl"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: 'color-mix(in srgb, var(--accent-gold) 12%, transparent)' }}
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   />
                 )}
                 <Icon
-                  className={cn(
-                    'w-5 h-5 transition-colors duration-200',
-                    isActive ? 'text-[#C9A84C]' : 'text-[#5A5A72]'
-                  )}
+                  className="w-5 h-5 transition-colors duration-200"
+                  style={{ color: isActive ? 'var(--accent-gold)' : 'var(--text-muted)' }}
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
-                <span className={cn(
-                  'text-[10px] font-medium transition-colors duration-200',
-                  isActive ? 'text-[#C9A84C]' : 'text-[#5A5A72]'
-                )}>
+                <span
+                  className="text-[10px] font-medium transition-colors duration-200"
+                  style={{ color: isActive ? 'var(--accent-gold)' : 'var(--text-muted)' }}
+                >
                   {label}
                 </span>
               </button>

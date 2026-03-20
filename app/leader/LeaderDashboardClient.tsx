@@ -8,9 +8,11 @@ import {
   Users, Zap, Target, Activity,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
+import { usePolling } from '@/hooks/usePolling';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
 interface LeaderStats {
@@ -43,19 +45,21 @@ export default function LeaderDashboardClient() {
   const [customLimit, setCustomLimit] = useState('100');
   const [showAnalytics, setShowAnalytics] = useState(false);
 
+  const { t } = useTheme();
+
   useEffect(() => {
     if (!user) { router.replace('/'); return; }
     if (user.role !== 'leader' && user.role !== 'admin') {
       router.replace('/home'); return;
     }
-    fetchAll();
   }, [user]);
 
   const fetchAll = async () => {
-    setLoading(true);
     await Promise.all([fetchQueue(), fetchStats()]);
     setLoading(false);
   };
+
+  usePolling(fetchAll, [user?.telegram_id], { interval: 10000, enabled: !!user });
 
   const fetchQueue = async () => {
     try {
