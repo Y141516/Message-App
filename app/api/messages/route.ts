@@ -138,17 +138,19 @@ export async function POST(req: NextRequest) {
     // Update emergency count
     if (is_emergency) {
       const today = new Date().toISOString().split('T')[0];
-      await supabaseAdmin.rpc('increment_emergency_count', {
-        p_user_id: user.id,
-        p_date: today,
-      }).catch(() => {
-        // Fallback upsert
-        supabaseAdmin.from('emergency_daily_counts').upsert({
+      try {
+        await supabaseAdmin.rpc('increment_emergency_count', {
+          p_user_id: user.id,
+          p_date: today,
+        });
+      } catch {
+        // Fallback upsert if RPC not yet created
+        await supabaseAdmin.from('emergency_daily_counts').upsert({
           user_id: user.id,
           date: today,
           count: 1,
         }, { onConflict: 'user_id,date' });
-      });
+      }
     }
 
     // Notify leader via Telegram bot
