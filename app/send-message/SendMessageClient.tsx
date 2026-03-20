@@ -118,7 +118,8 @@ export default function SendMessageClient() {
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setMediaType('voice');
-        setMediaFile(new File([blob], 'voice-note.webm', { type: 'audio/webm' }));
+        const voiceFile = new (window.File || Blob)([blob], 'voice-note.webm', { type: 'audio/webm' }) as File;
+        setMediaFile(voiceFile);
         stream.getTracks().forEach(t => t.stop());
       };
       mediaRecorderRef.current = recorder;
