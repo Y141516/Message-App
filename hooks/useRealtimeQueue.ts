@@ -11,8 +11,9 @@ export function useRealtimeQueue(onQueueChange: () => void, enabled = true) {
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || typeof window === 'undefined') return;
 
+    try {
     // Subscribe to queues table changes (open/close)
     const channel = supabase
       .channel('queue-changes')
@@ -28,10 +29,13 @@ export function useRealtimeQueue(onQueueChange: () => void, enabled = true) {
       });
 
     channelRef.current = channel;
+    } catch (err) {
+      console.warn('[Realtime] Queue subscription failed:', err);
+    }
 
     return () => {
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        try { supabase.removeChannel(channelRef.current); } catch {}
       }
     };
   }, [enabled]);

@@ -95,10 +95,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('en');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('app_theme') as Theme | null;
-    const savedLang = localStorage.getItem('app_lang') as Lang | null;
-    if (savedTheme) apply(savedTheme);
-    if (savedLang) setLangState(savedLang);
+    try {
+      if (typeof window === 'undefined') return;
+      const savedTheme = localStorage.getItem('app_theme') as Theme | null;
+      const savedLang = localStorage.getItem('app_lang') as Lang | null;
+      if (savedTheme) apply(savedTheme);
+      if (savedLang) setLangState(savedLang);
+    } catch {
+      // localStorage not available
+    }
   }, []);
 
   const apply = (t: Theme) => {
@@ -120,12 +125,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (t: Theme) => {
     apply(t);
-    localStorage.setItem('app_theme', t);
+    try { localStorage.setItem('app_theme', t); } catch {}
   };
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem('app_lang', l);
+    try { localStorage.setItem('app_lang', l); } catch {}
   };
 
   const t = (key: string): string =>

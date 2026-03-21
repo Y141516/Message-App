@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useUserStore } from '@/store/userStore';
@@ -8,13 +8,16 @@ import LoadingScreen from '@/components/ui/LoadingScreen';
 export default function RootPage() {
   const router = useRouter();
   const { initData, isReady } = useTelegram();
-  const { setUser, setTelegramInitData, user } = useUserStore();
+  const { setUser, setTelegramInitData, user, _hasHydrated } = useUserStore();
+  const [authStarted, setAuthStarted] = useState(false);
 
   useEffect(() => {
-    if (!isReady) return;
+    // Wait for both Telegram SDK and Zustand hydration
+    if (!isReady || !_hasHydrated || authStarted) return;
+    setAuthStarted(true);
 
     const authenticate = async () => {
-      // If user already in store and onboarding complete, route by role
+      // If user already in store, route by role immediately
       if (user?.onboarding_complete) {
         const role = user.role;
         if (role === 'admin') router.replace('/admin');
@@ -33,11 +36,8 @@ export default function RootPage() {
         const data = await res.json();
 
         if (!res.ok) {
-          if (data.error === 'not_a_member') {
-            router.replace('/not-authorized');
-          } else {
-            router.replace('/error');
-          }
+          if (data.error === 'not_a_member') router.replace('/not-authorized');
+          else router.replace('/error');
           return;
         }
 
@@ -52,7 +52,6 @@ export default function RootPage() {
           router.replace('/onboarding');
         } else {
           setUser(data.user);
-          // Route by role
           const role = data.user.role;
           if (role === 'admin') router.replace('/admin');
           else if (role === 'leader') router.replace('/leader');
@@ -65,7 +64,7 @@ export default function RootPage() {
     };
 
     authenticate();
-  }, [isReady, initData]);
+  }, [isReady, _hasHydrated]);
 
   return <LoadingScreen message="Jay Bhagwanji..." />;
 }
