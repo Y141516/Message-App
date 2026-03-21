@@ -200,7 +200,11 @@ export default function HomeClient() {
   );
 }
 
-function ActionCard({ icon, label, sublabel, iconBg, cardBg, cardBorder, labelColor, onClick }: any) {
+function ActionCard({ icon, label, sublabel, iconBg, cardBg, cardBorder, labelColor, onClick }: {
+  icon: React.ReactNode; label: string; sublabel: string;
+  iconBg: string; cardBg: string; cardBorder: string; labelColor: string;
+  onClick: () => void;
+}) {
   return (
     <motion.button whileTap={{ scale: 0.96 }} onClick={onClick}
       className="rounded-2xl p-4 text-left transition-all"
@@ -213,7 +217,10 @@ function ActionCard({ icon, label, sublabel, iconBg, cardBg, cardBorder, labelCo
   );
 }
 
-function EmergencyCard({ icon, iconBg, cardBg, cardBorder, label, labelColor, onClick }: any) {
+function EmergencyCard({ icon, iconBg, cardBg, cardBorder, label, labelColor, onClick }: {
+  icon: React.ReactNode; iconBg: string; cardBg: string;
+  cardBorder: string; label: string; labelColor: string; onClick: () => void;
+}) {
   return (
     <motion.button whileTap={{ scale: 0.94 }} onClick={onClick}
       className="rounded-2xl p-3 flex flex-col items-center gap-2.5 transition-all"

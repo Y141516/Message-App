@@ -254,7 +254,13 @@ function CurrentMessageCard({ message, t, isLight }: { message: Message; t: any;
   );
 }
 
-function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDownloadAudio, onDownloadPDF, t, isLight }: any) {
+function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDownloadAudio, onDownloadPDF, t, isLight }: {
+  message: Message; index: number; playingAudio: string | null; isLight: boolean;
+  setPlayingAudio: (id: string | null) => void;
+  onDownloadAudio: (url: string, id: string) => void;
+  onDownloadPDF: (content: string, leaderName: string, msgContent: string) => void;
+  t: (k: string) => string;
+}) {
   const leader = (message as any).leaders;
   const reply = Array.isArray((message as any).replies) ? (message as any).replies[0] : (message as any).replies;
   return (
@@ -326,7 +332,10 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
   );
 }
 
-function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, isLight, t }: any) {
+function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, isLight, t }: {
+  url: string; messageId: string; isPlaying: boolean; isLight: boolean;
+  onToggle: (id: string) => void; onDownload: () => void; t: (k: string) => string;
+}) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -393,7 +402,10 @@ function MediaAttachment({ url, type, isLight }: { url: string; type: string; is
   );
 }
 
-function EmptyState({ icon, title, subtitle, action, isLight }: any) {
+function EmptyState({ icon, title, subtitle, action, isLight }: {
+  icon: React.ReactNode; title: string; subtitle: string; isLight: boolean;
+  action?: { label: string; onClick: () => void };
+}) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl p-8 text-center"
@@ -428,10 +440,15 @@ function SkeletonCard({ isLight }: { isLight: boolean }) {
   );
 }
 
-function FilterPills({ options, value, onChange, isLight }: any) {
+function FilterPills({ options, value, onChange, isLight }: {
+  options: { id: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  isLight: boolean;
+}) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {options.map((opt: any) => (
+      {options.map((opt) => (
         <button key={opt.id} onClick={() => onChange(opt.id)}
           className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
           style={{
