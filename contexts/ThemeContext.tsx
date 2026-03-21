@@ -37,7 +37,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'home.emergency_limit': { en: 'Max 3 emergency messages per day', hi: 'प्रतिदिन अधिकतम 3 आपातकालीन संदेश' },
   'dashboard.title':   { en: 'Dashboard', hi: 'डैशबोर्ड' },
   'dashboard.current': { en: 'Current',   hi: 'वर्तमान' },
-  'dashboard.history': { en: 'Messages & Replies', hi: 'संदेश और उत्तर' },
+  'dashboard.history': { en: 'Msgs & Replies', hi: 'संदेश और उत्तर' },
   'dashboard.to':      { en: 'To',         hi: 'को' },
   'dashboard.awaiting':{ en: 'Awaiting reply from', hi: 'से उत्तर की प्रतीक्षा' },
   'dashboard.your_message':{ en: 'YOUR MESSAGE', hi: 'आपका संदेश' },

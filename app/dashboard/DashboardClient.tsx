@@ -101,12 +101,14 @@ export default function DashboardClient() {
     color: active ? 'var(--tab-active-text)' : 'var(--text-secondary)',
     border: 'none',
     borderRadius: '14px',
-    padding: '10px 16px',
+    padding: '10px 12px',
     flex: 1,
     fontWeight: 600,
-    fontSize: '14px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    fontSize: '13px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
     cursor: 'pointer', transition: 'all 0.2s',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
   });
 
   return (
@@ -117,10 +119,12 @@ export default function DashboardClient() {
       <div className="px-4 mb-4">
         <div className="flex gap-2 p-1.5 rounded-2xl" style={{ background: isLight ? '#EEEEF7' : 'var(--bg-secondary)' }}>
           <button style={tabStyle(tab === 'current')} onClick={() => setTab('current')}>
-            <Clock className="w-3.5 h-3.5" /> {t('dashboard.current')}
+            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="whitespace-nowrap">{t('dashboard.current')}</span>
           </button>
           <button style={tabStyle(tab === 'history')} onClick={() => setTab('history')}>
-            <MessageSquare className="w-3.5 h-3.5" /> {t('dashboard.history')}
+            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="whitespace-nowrap">{t('dashboard.history')}</span>
           </button>
         </div>
       </div>

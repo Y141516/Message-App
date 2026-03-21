@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   MessageSquarePlus, LayoutDashboard, BookOpen,
-  CheckCircle2, Stethoscope, ArrowLeftRight, AlertTriangle,
+  CheckCircle2, Stethoscope, Car, Siren,
   ChevronRight, BarChart2, Lock,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
@@ -160,32 +160,33 @@ export default function HomeClient() {
 
         {/* Emergency Services */}
         <motion.div {...fadeUp(0.19)}>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 mb-3">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{t('home.emergency')}</p>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: '#00C48C' }}>
+            <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
               {t('home.always_active')}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <EmergencyCard
-              icon={<span className="text-2xl">❤️</span>}
-              iconBg={isLight ? 'linear-gradient(135deg,#FF4B4B,#FF6B6B)' : 'rgba(239,68,68,0.2)'}
+              icon={<Stethoscope className="w-5 h-5" style={{ color: isLight ? '#CC2222' : '#f87171' }} />}
+              iconBg={isLight ? '#FFE8E8' : 'rgba(239,68,68,0.15)'}
               cardBg={isLight ? '#FFE8E8' : 'rgba(239,68,68,0.08)'}
               cardBorder={isLight ? '#FFCDD2' : 'rgba(239,68,68,0.2)'}
               label={t('home.medical')}
               labelColor={isLight ? '#CC2222' : '#f87171'}
               onClick={() => router.push('/send-message?emergency=medical')} />
             <EmergencyCard
-              icon={<ArrowLeftRight className="w-5 h-5 text-white" />}
-              iconBg={isLight ? 'linear-gradient(135deg,#1E90FF,#4DAAFF)' : 'rgba(59,130,246,0.2)'}
+              icon={<Car className="w-5 h-5" style={{ color: isLight ? '#1565C0' : '#60a5fa' }} />}
+              iconBg={isLight ? '#E3F2FF' : 'rgba(59,130,246,0.15)'}
               cardBg={isLight ? '#E3F2FF' : 'rgba(59,130,246,0.08)'}
               cardBorder={isLight ? '#B3D9FF' : 'rgba(59,130,246,0.2)'}
               label={t('home.transport')}
               labelColor={isLight ? '#1565C0' : '#60a5fa'}
               onClick={() => router.push('/send-message?emergency=transport')} />
             <EmergencyCard
-              icon={<AlertTriangle className="w-5 h-5 text-white" />}
-              iconBg={isLight ? 'linear-gradient(135deg,#FF8C00,#FFA500)' : 'rgba(249,115,22,0.2)'}
+              icon={<Siren className="w-5 h-5" style={{ color: isLight ? '#B35A00' : '#fb923c' }} />}
+              iconBg={isLight ? '#FFF4E0' : 'rgba(249,115,22,0.15)'}
               cardBg={isLight ? '#FFF4E0' : 'rgba(249,115,22,0.08)'}
               cardBorder={isLight ? '#FFE0A0' : 'rgba(249,115,22,0.2)'}
               label={t('home.urgent')}
