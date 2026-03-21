@@ -4,102 +4,161 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
-/* ─── DARK THEME (default) ─────────────────────────── */
+/* ═══════════════════════════════════════════════
+   DARK THEME (default)
+═══════════════════════════════════════════════ */
 :root, .dark {
-  --font-display: 'Cinzel', serif;
-  --font-body: 'DM Sans', sans-serif;
+  --bg-primary:    #0A0A0F;
+  --bg-secondary:  #12121A;
+  --bg-card:       #1A1A26;
+  --bg-elevated:   #22223A;
 
-  --bg-primary: #0A0A0F;
-  --bg-secondary: #12121A;
-  --bg-card: #1A1A26;
-  --bg-elevated: #22223A;
+  --accent:        #C9A84C;
+  --accent-light:  #E8C97A;
+  --accent-dim:    #8A6F2E;
+  --accent-rgb:    201,168,76;
 
-  --accent-gold: #C9A84C;
-  --accent-gold-light: #E8C97A;
-  --accent-gold-dim: #8A6F2E;
-
-  --text-primary: #F0EDE8;
+  --text-primary:   #F0EDE8;
   --text-secondary: #9A9AB0;
-  --text-muted: #5A5A72;
+  --text-muted:     #5A5A72;
 
   --border-subtle: #2A2A3E;
-  --border: #3A3A52;
+  --border:        #3A3A52;
 
   --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
+
+  /* Component-specific */
+  --tab-active-bg:   linear-gradient(135deg, #C9A84C, #E8C97A);
+  --tab-active-text: #0A0A0F;
+  --btn-primary-bg:  linear-gradient(135deg, #C9A84C, #E8C97A);
+  --btn-primary-text:#0A0A0F;
+  --nav-active:      #C9A84C;
+  --send-btn-bg:     linear-gradient(135deg, #C9A84C, #E8C97A);
+
+  --group-card-bg:   rgba(76,175,120,0.08);
+  --group-card-border: rgba(76,175,120,0.2);
+  --queue-open-bg:   rgba(34,197,94,0.06);
+  --queue-open-border: rgba(34,197,94,0.25);
+
+  --msg-card-bg:     #1A1A26;
+  --msg-card-border: #2A2A3E;
+  --awaiting-bg:     #12121A;
+  --awaiting-border: #2A2A3E;
+  --awaiting-text:   #9A9AB0;
+
+  --reply-header-bg:   linear-gradient(135deg, #C9A84C, #E8C97A);
+  --reply-header-text: #0A0A0F;
+
+  --vachan-card-bg:     #1A1A26;
+  --vachan-card-border: rgba(201,168,76,0.25);
+  --vachan-btn-bg:      linear-gradient(135deg, #C9A84C, #E8C97A);
+  --vachan-btn-text:    #0A0A0F;
+  --vachan-icon-bg:     linear-gradient(135deg, #C9A84C, #8A6F2E);
+
+  --profile-icon-bg:   #22223A;
+  --profile-label:     #9A9AB0;
+  --logout-bg:         linear-gradient(135deg, #E05252, #C03030);
 }
 
-/* ─── LIGHT THEME ────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   LIGHT THEME — Figma design
+═══════════════════════════════════════════════ */
 .light {
-  --bg-primary: #F5F4F0;
-  --bg-secondary: #EDECEA;
-  --bg-card: #FFFFFF;
-  --bg-elevated: #F0EEE8;
+  --bg-primary:    #EEEEF7;
+  --bg-secondary:  #E4E4F0;
+  --bg-card:       #FFFFFF;
+  --bg-elevated:   #F0EFF8;
 
-  --accent-gold: #A07828;
-  --accent-gold-light: #C9A84C;
-  --accent-gold-dim: #D4B876;
+  --accent:        #F5A623;
+  --accent-light:  #FFB84D;
+  --accent-dim:    #E09010;
+  --accent-rgb:    245,166,35;
 
-  --text-primary: #1A1A26;
-  --text-secondary: #4A4A62;
-  --text-muted: #8A8AA0;
+  --text-primary:   #1A1A4E;
+  --text-secondary: #4A4A7A;
+  --text-muted:     #8A8AAA;
 
-  --border-subtle: #E0DDD8;
-  --border: #C8C5BE;
+  --border-subtle: #E0DFEE;
+  --border:        #C8C7E0;
 
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-card: 0 4px 20px rgba(100,100,180,0.1);
+
+  /* Component-specific */
+  --tab-active-bg:   linear-gradient(135deg, #F5A623, #FF8C00);
+  --tab-active-text: #FFFFFF;
+  --btn-primary-bg:  linear-gradient(135deg, #F5A623, #FF8C00);
+  --btn-primary-text:#FFFFFF;
+  --nav-active:      #F5A623;
+  --send-btn-bg:     linear-gradient(135deg, #F5A623, #FF8C00);
+
+  --group-card-bg:    rgba(0,196,140,0.08);
+  --group-card-border: rgba(0,196,140,0.3);
+  --queue-open-bg:    rgba(0,196,140,0.08);
+  --queue-open-border: rgba(0,196,140,0.35);
+
+  --msg-card-bg:     #FFFFFF;
+  --msg-card-border: #E0DFEE;
+  --awaiting-bg:     #FFFBEB;
+  --awaiting-border: #F5A623;
+  --awaiting-text:   #B07000;
+
+  --reply-header-bg:   linear-gradient(135deg, #F5A623, #FF8C00);
+  --reply-header-text: #FFFFFF;
+
+  --vachan-card-bg:     linear-gradient(135deg, #F8F0FF, #EEE8FF);
+  --vachan-card-border: rgba(168,85,247,0.2);
+  --vachan-btn-bg:      linear-gradient(135deg, #9B5DE5, #F15BB5);
+  --vachan-btn-text:    #FFFFFF;
+  --vachan-icon-bg:     linear-gradient(135deg, #9B5DE5, #F15BB5);
+
+  --profile-icon-bg:   #F0EFF8;
+  --profile-label:     #F5A623;
+  --logout-bg:         linear-gradient(135deg, #F15BB5, #E63946);
 }
 
-/* ─── BASE ────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
-  font-family: var(--font-body);
+  font-family: 'DM Sans', sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  height: 100%;
+  min-height: 100%;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* Utility classes using CSS variables — theme-aware */
-.bg-app-primary    { background-color: var(--bg-primary); }
-.bg-app-secondary  { background-color: var(--bg-secondary); }
-.bg-app-card       { background-color: var(--bg-card); }
-.bg-app-elevated   { background-color: var(--bg-elevated); }
-.text-app-primary  { color: var(--text-primary); }
-.text-app-secondary{ color: var(--text-secondary); }
-.text-app-muted    { color: var(--text-muted); }
-.border-app        { border-color: var(--border); }
-.border-app-subtle { border-color: var(--border-subtle); }
-
-/* Gold gradient text */
-.text-gold-gradient {
-  background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light), var(--accent-gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Light mode top gradient bar (matches Figma) */
+.light body::before,
+.light .app-top-bar {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #9B5DE5, #F15BB5, #F5A623);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 999;
 }
+
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
+.safe-area-top    { padding-top: env(safe-area-inset-top, 0px); }
+
+.text-gold  { color: var(--accent); }
+.bg-accent  { background: var(--accent); }
 
 /* Glass */
 .glass {
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-subtle);
 }
 
-/* Safe area */
-.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
-.safe-area-top    { padding-top: env(safe-area-inset-top, 0px); }
-
-/* Shorthand utilities */
-@layer utilities {
-  .text-gold       { color: var(--accent-gold); }
-  .text-gold-light { color: var(--accent-gold-light); }
-}
+/* Light mode page title style */
+.light .page-title { color: #3D3D8F; font-weight: 700; }

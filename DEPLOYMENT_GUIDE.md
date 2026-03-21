@@ -189,3 +189,28 @@ messenger-app/
 - Filters + Download (audio → .mp3, text → .pdf)
 - Real-time notifications via bot
 
+
+---
+
+## ENABLING SUPABASE REALTIME (REQUIRED FOR INSTANT UPDATES)
+
+1. Go to **Supabase Dashboard → Database → Replication**
+2. Click on **supabase_realtime** publication
+3. Enable these tables:
+   - ✅ `queues`
+   - ✅ `messages`
+   - ✅ `replies`
+4. Click **Save**
+
+OR run this in SQL Editor:
+
+```sql
+-- Enable realtime on required tables
+ALTER PUBLICATION supabase_realtime ADD TABLE queues;
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE replies;
+```
+
+This is what makes queue open/close INSTANT for all users.
+Without this, only the 5s polling fallback will work.
+

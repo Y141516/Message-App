@@ -176,7 +176,7 @@ export default function SendMessageClient() {
 
   if (sent) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center p-6">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -186,13 +186,13 @@ export default function SendMessageClient() {
           <CheckCircle2 className="w-12 h-12 text-green-400" />
         </motion.div>
         <motion.h2 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="text-xl font-bold text-[#F0EDE8] mb-2">Message Sent!</motion.h2>
+          className="text-xl font-bold text-[var(--text-primary)] mb-2">Message Sent!</motion.h2>
         <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="text-[#9A9AB0] text-sm text-center">
+          className="text-[var(--text-secondary)] text-sm text-center">
           Delivered to {selectedLeader?.display_name}
         </motion.p>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-          className="text-[#5A5A72] text-xs mt-4">Returning to home...</motion.p>
+          className="text-[var(--text-muted)] text-xs mt-4">Returning to home...</motion.p>
       </div>
     );
   }
@@ -210,19 +210,19 @@ export default function SendMessageClient() {
             <emergencyConfig.icon className={cn('w-5 h-5 flex-shrink-0', emergencyConfig.color)} />
             <div>
               <p className={cn('text-sm font-semibold', emergencyConfig.color)}>{emergencyConfig.label}</p>
-              <p className="text-[#9A9AB0] text-xs">Bypasses queue — sent immediately</p>
+              <p className="text-[var(--text-secondary)] text-xs">Bypasses queue — sent immediately</p>
             </div>
           </motion.div>
         )}
 
         {/* Leader Selector */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2 font-medium">Send To</p>
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2 font-medium">Send To</p>
           <button
             onClick={() => setShowLeaderPicker(!showLeaderPicker)}
             className={cn(
-              'w-full bg-[#1A1A26] border rounded-2xl p-4 flex items-center gap-3 transition-all',
-              showLeaderPicker ? 'border-[#C9A84C]/50' : 'border-[#2A2A3E] hover:border-[#3A3A52]'
+              'w-full bg-[var(--bg-card)] border rounded-2xl p-4 flex items-center gap-3 transition-all',
+              showLeaderPicker ? 'border-[#C9A84C]/50' : 'border-[var(--border-subtle)] hover:border-[var(--border)]'
             )}
           >
             {selectedLeader ? (
@@ -231,17 +231,17 @@ export default function SendMessageClient() {
                   <span className="text-[#C9A84C] text-sm font-bold">{selectedLeader.display_name.charAt(0)}</span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[#F0EDE8] text-sm font-medium">{selectedLeader.display_name}</p>
-                  <p className="text-[#5A5A72] text-xs">
+                  <p className="text-[var(--text-primary)] text-sm font-medium">{selectedLeader.display_name}</p>
+                  <p className="text-[var(--text-muted)] text-xs">
                     {isEmergency ? 'Emergency message' :
                       openQueues.find(q => q.leader_id === selectedLeader.id) ? 'Queue open' : 'Emergency only'}
                   </p>
                 </div>
               </>
             ) : (
-              <p className="text-[#5A5A72] text-sm flex-1 text-left">Select a leader...</p>
+              <p className="text-[var(--text-muted)] text-sm flex-1 text-left">Select a leader...</p>
             )}
-            <ChevronDown className={cn('w-4 h-4 text-[#5A5A72] transition-transform flex-shrink-0', showLeaderPicker && 'rotate-180')} />
+            <ChevronDown className={cn('w-4 h-4 text-[var(--text-muted)] transition-transform flex-shrink-0', showLeaderPicker && 'rotate-180')} />
           </button>
 
           <AnimatePresence>
@@ -251,11 +251,11 @@ export default function SendMessageClient() {
                 animate={{ opacity: 1, y: 0, scaleY: 1 }}
                 exit={{ opacity: 0, y: -8, scaleY: 0.9 }}
                 transition={{ duration: 0.18 }}
-                className="mt-1.5 bg-[#1A1A26] border border-[#C9A84C]/30 rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                className="mt-1.5 bg-[var(--bg-card)] border border-[#C9A84C]/30 rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
                 style={{ transformOrigin: 'top' }}
               >
                 {leaders.length === 0 && (
-                  <p className="text-[#5A5A72] text-sm text-center py-4">No leaders found</p>
+                  <p className="text-[var(--text-muted)] text-sm text-center py-4">No leaders found</p>
                 )}
                 {leaders.map((leader, i) => {
                   const hasOpenQueue = openQueues.some(q => q.leader_id === leader.id);
@@ -267,7 +267,7 @@ export default function SendMessageClient() {
                       onClick={() => { setSelectedLeader(leader); setShowLeaderPicker(false); }}
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-3.5 transition-colors text-left',
-                        i > 0 && 'border-t border-[#2A2A3E]',
+                        i > 0 && 'border-t border-[var(--border-subtle)]',
                         canSelect ? 'hover:bg-[#C9A84C]/5' : 'opacity-40 cursor-not-allowed'
                       )}
                     >
@@ -275,8 +275,8 @@ export default function SendMessageClient() {
                         <span className="text-[#C9A84C] text-sm font-bold">{leader.display_name.charAt(0)}</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-[#F0EDE8] text-sm font-medium">{leader.display_name}</p>
-                        <p className="text-[#5A5A72] text-xs">
+                        <p className="text-[var(--text-primary)] text-sm font-medium">{leader.display_name}</p>
+                        <p className="text-[var(--text-muted)] text-xs">
                           {isEmergency ? 'Emergency message' : hasOpenQueue ? '✓ Queue open' : 'Queue closed'}
                         </p>
                       </div>
@@ -291,30 +291,30 @@ export default function SendMessageClient() {
 
         {/* Message Input */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2 font-medium">Message</p>
-          <div className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl overflow-hidden focus-within:border-[#C9A84C]/50 transition-colors">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2 font-medium">Message</p>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden focus-within:border-[#C9A84C]/50 transition-colors">
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Write your message here..."
               rows={5}
               maxLength={2000}
-              className="w-full bg-transparent px-4 pt-4 pb-2 text-[#F0EDE8] text-sm placeholder:text-[#5A5A72] outline-none resize-none"
+              className="w-full bg-transparent px-4 pt-4 pb-2 text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] outline-none resize-none"
             />
             <div className="px-4 pb-3 pt-1">
-              <span className="text-[#3A3A52] text-xs">{content.length}/2000</span>
+              <span className="text-[var(--text-muted)] text-xs">{content.length}/2000</span>
             </div>
           </div>
         </motion.div>
 
         {/* Media Attachments */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2 font-medium">
-            Attach <span className="normal-case text-[#3A3A52]">(optional)</span>
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2 font-medium">
+            Attach <span className="normal-case text-[var(--text-muted)]">(optional)</span>
           </p>
 
           {mediaFile ? (
-            <div className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl p-4">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#C9A84C]/10 flex items-center justify-center flex-shrink-0">
                   {mediaType === 'photo' ? <Image className="w-5 h-5 text-[#C9A84C]" /> :
@@ -327,10 +327,10 @@ export default function SendMessageClient() {
                     <img src={mediaPreview} alt="preview" className="w-full max-h-40 object-cover rounded-xl" />
                   ) : (
                     <>
-                      <p className="text-[#F0EDE8] text-sm font-medium truncate">
+                      <p className="text-[var(--text-primary)] text-sm font-medium truncate">
                         {mediaType === 'voice' ? 'Voice Note recorded' : mediaFile.name}
                       </p>
-                      <p className="text-[#5A5A72] text-xs capitalize">{mediaType}</p>
+                      <p className="text-[var(--text-muted)] text-xs capitalize">{mediaType}</p>
                     </>
                   )}
                 </div>
@@ -344,7 +344,7 @@ export default function SendMessageClient() {
               <div className="w-3 h-3 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-red-400 text-sm font-medium">Recording...</p>
-                <p className="text-[#9A9AB0] text-xs">{formatTime(recordingTime)}</p>
+                <p className="text-[var(--text-secondary)] text-xs">{formatTime(recordingTime)}</p>
               </div>
               <button onClick={stopRecording} className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center text-white">
                 <StopCircle className="w-5 h-5" />
@@ -362,19 +362,19 @@ export default function SendMessageClient() {
                   <button
                     key={label}
                     onClick={() => { if (fileInputRef.current) { fileInputRef.current.accept = accept; fileInputRef.current.click(); } }}
-                    className="bg-[#1A1A26] border border-[#2A2A3E] rounded-xl py-3 flex flex-col items-center gap-1.5 hover:border-[#C9A84C]/30 transition-all active:scale-95"
+                    className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl py-3 flex flex-col items-center gap-1.5 hover:border-[#C9A84C]/30 transition-all active:scale-95"
                   >
-                    <Icon className="w-4 h-4 text-[#9A9AB0]" />
-                    <span className="text-[#5A5A72] text-[10px]">{label}</span>
+                    <Icon className="w-4 h-4 text-[var(--text-secondary)]" />
+                    <span className="text-[var(--text-muted)] text-[10px]">{label}</span>
                   </button>
                 ))}
               </div>
               <button
                 onClick={startRecording}
-                className="w-full bg-[#1A1A26] border border-[#2A2A3E] rounded-xl py-3 flex items-center justify-center gap-2 hover:border-[#C9A84C]/30 transition-all active:scale-[0.98]"
+                className="w-full bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl py-3 flex items-center justify-center gap-2 hover:border-[#C9A84C]/30 transition-all active:scale-[0.98]"
               >
-                <Mic className="w-4 h-4 text-[#9A9AB0]" />
-                <span className="text-[#5A5A72] text-sm">Record Voice Note</span>
+                <Mic className="w-4 h-4 text-[var(--text-secondary)]" />
+                <span className="text-[var(--text-muted)] text-sm">Record Voice Note</span>
               </button>
             </>
           )}
@@ -399,7 +399,7 @@ export default function SendMessageClient() {
             }
           </button>
           {isEmergency && (
-            <p className="text-center text-[#5A5A72] text-xs mt-3 flex items-center justify-center gap-1">
+            <p className="text-center text-[var(--text-muted)] text-xs mt-3 flex items-center justify-center gap-1">
               <AlertTriangle className="w-3 h-3" /> Max 3 emergency messages per day
             </p>
           )}

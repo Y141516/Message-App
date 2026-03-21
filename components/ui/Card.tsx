@@ -22,7 +22,7 @@ export default function Card({ children, className, onClick, hover, glow, delay 
       whileTap={onClick ? { scale: 0.98 } : undefined}
       onClick={onClick}
       className={cn(
-        'bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl',
+        'bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl',
         glow && 'shadow-[0_0_20px_rgba(201,168,76,0.08)]',
         onClick && 'cursor-pointer',
         className

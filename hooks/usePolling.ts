@@ -2,62 +2,64 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 interface UsePollingOptions {
-  interval?: number;       // ms between polls (default 10000)
-  enabled?: boolean;       // can disable polling
-  immediate?: boolean;     // fetch immediately on mount (default true)
+  interval?: number;
+  enabled?: boolean;
+  immediate?: boolean;
 }
 
-/**
- * Smart polling hook:
- * - Fetches immediately on mount
- * - Polls every `interval` ms
- * - Pauses when tab is hidden (saves requests)
- * - Resumes immediately when tab becomes visible
- * - Stops on unmount
- */
 export function usePolling(
   fn: () => Promise<void> | void,
   deps: any[],
   options: UsePollingOptions = {}
 ) {
-  const { interval = 10000, enabled = true, immediate = true } = options;
+  const { interval = 5000, enabled = true, immediate = true } = options;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fnRef = useRef(fn);
+  const runningRef = useRef(false);
 
-  // Always keep fnRef current so stale closures don't cause issues
   useEffect(() => { fnRef.current = fn; });
-
-  const start = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      if (!document.hidden) fnRef.current();
-    }, interval);
-  }, [interval]);
 
   const stop = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   }, []);
 
+  const start = useCallback(() => {
+    stop();
+    timerRef.current = setInterval(async () => {
+      if (!document.hidden && !runningRef.current) {
+        runningRef.current = true;
+        try { await fnRef.current(); } finally { runningRef.current = false; }
+      }
+    }, interval);
+  }, [interval, stop]);
+
   useEffect(() => {
     if (!enabled) { stop(); return; }
 
-    if (immediate) fnRef.current();
+    // Run immediately on mount
+    if (immediate) {
+      runningRef.current = true;
+      Promise.resolve(fnRef.current()).finally(() => { runningRef.current = false; });
+    }
     start();
 
-    // Pause when hidden, resume + fetch immediately when visible
-    const onVisibilityChange = () => {
+    const onVisibility = () => {
       if (document.hidden) {
         stop();
       } else {
-        fnRef.current(); // fetch immediately on resume
+        // Fetch immediately on tab focus
+        if (!runningRef.current) {
+          runningRef.current = true;
+          Promise.resolve(fnRef.current()).finally(() => { runningRef.current = false; });
+        }
         start();
       }
     };
 
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       stop();
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enabled, ...deps]);
 }

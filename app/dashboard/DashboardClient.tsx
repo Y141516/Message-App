@@ -3,15 +3,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MessageSquare, Clock, CheckCheck, Filter,
-  Download, Play, Pause, Volume2,
-  FileText, FileVideo, FileAudio, Mic, X, Inbox,
+  Clock, CheckCheck, Filter, Download,
+  Play, Pause, Volume2, FileText,
+  FileVideo, FileAudio, Mic, X, Inbox, MessageSquare,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePolling } from '@/hooks/usePolling';
+import { useRealtimeReplies } from '@/hooks/useRealtimeQueue';
 import { Message } from '@/types';
 import { cn, formatRelativeTime, getMessageTypeLabel, getEmergencyColor } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -23,7 +24,7 @@ type FilterType = 'all' | 'text' | 'audio';
 export default function DashboardClient() {
   const router = useRouter();
   const { user } = useUserStore();
-  const { t } = useTheme();
+  const { t, isLight } = useTheme();
 
   const [tab, setTab] = useState<Tab>('current');
   const [currentMessage, setCurrentMessage] = useState<Message | null>(null);
@@ -43,14 +44,11 @@ export default function DashboardClient() {
       if (!res.ok) throw new Error(data.error);
       setCurrentMessage(data.currentMessage);
       setAllMessages(data.messages || []);
-    } catch {
-      // silently keep current data
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   };
 
-  usePolling(fetchDashboard, [user?.telegram_id], { interval: 10000, enabled: !!user });
+  usePolling(fetchDashboard, [user?.telegram_id], { interval: 5000, enabled: !!user });
+  useRealtimeReplies(fetchDashboard, !!user);
 
   const repliedMessages = allMessages.filter(m => m.is_replied);
   const leaderMap = new Map<string, any>();
@@ -71,41 +69,45 @@ export default function DashboardClient() {
 
   const activeFilterCount = [filterLeader !== 'all', filterSort !== 'newest', filterType !== 'all'].filter(Boolean).length;
 
-  // ─── Download via server proxy ───────────────────────
   const downloadAudio = (audioUrl: string, messageId: string) => {
     const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}&filename=reply-${messageId}.mp3`;
     const a = document.createElement('a');
-    a.href = proxyUrl;
-    a.download = `reply-${messageId}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = proxyUrl; a.download = `reply-${messageId}.mp3`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast.success(t('dashboard.download_audio'));
   };
 
   const downloadPDF = (content: string, leaderName: string, msgContent: string) => {
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#333}
-    h2{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px}
+    <style>body{font-family:Arial;max-width:600px;margin:40px auto;color:#333}
+    h2{color:#F5A623}
     .msg{background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0}
-    .reply{background:#fff8e6;border-left:4px solid #C9A84C;padding:16px;border-radius:0 8px 8px 0}
-    .label{font-size:11px;color:#999;text-transform:uppercase;margin-bottom:6px}</style>
-    </head><body><h2>Message Reply</h2>
-    <div class="label">Your Message</div><div class="msg">${msgContent || '(No text content)'}</div>
-    <div class="label">Reply from ${leaderName}</div><div class="reply">${content}</div>
-    </body></html>`;
-
+    .reply{background:#FFF8EE;border-left:4px solid #F5A623;padding:16px}</style>
+    </head><body><h2>Reply from ${leaderName}</h2>
+    <div class="msg">${msgContent}</div>
+    <div class="reply">${content}</div></body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `reply-${leaderName}-${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = `reply-${Date.now()}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success(t('dashboard.download_pdf'));
   };
+
+  // Tab button style
+  const tabStyle = (active: boolean) => ({
+    background: active ? 'var(--tab-active-bg)' : (isLight ? '#EEEEF7' : 'var(--bg-elevated)'),
+    color: active ? 'var(--tab-active-text)' : 'var(--text-secondary)',
+    border: 'none',
+    borderRadius: '14px',
+    padding: '10px 16px',
+    flex: 1,
+    fontWeight: 600,
+    fontSize: '14px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    cursor: 'pointer', transition: 'all 0.2s',
+  });
 
   return (
     <AppShell>
@@ -113,19 +115,13 @@ export default function DashboardClient() {
 
       {/* Tabs */}
       <div className="px-4 mb-4">
-        <div className="flex rounded-2xl p-1" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-          {(['current', 'history'] as Tab[]).map(tabKey => (
-            <button key={tabKey} onClick={() => setTab(tabKey)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5"
-              style={{
-                background: tab === tabKey ? 'var(--bg-card)' : 'transparent',
-                color: tab === tabKey ? 'var(--accent-gold)' : 'var(--text-muted)',
-                border: tab === tabKey ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
-              }}>
-              {tabKey === 'current' ? <Clock className="w-3.5 h-3.5" /> : <CheckCheck className="w-3.5 h-3.5" />}
-              {tabKey === 'current' ? t('dashboard.current') : t('dashboard.history')}
-            </button>
-          ))}
+        <div className="flex gap-2 p-1.5 rounded-2xl" style={{ background: isLight ? '#EEEEF7' : 'var(--bg-secondary)' }}>
+          <button style={tabStyle(tab === 'current')} onClick={() => setTab('current')}>
+            <Clock className="w-3.5 h-3.5" /> {t('dashboard.current')}
+          </button>
+          <button style={tabStyle(tab === 'history')} onClick={() => setTab('history')}>
+            <MessageSquare className="w-3.5 h-3.5" /> {t('dashboard.history')}
+          </button>
         </div>
       </div>
 
@@ -134,12 +130,13 @@ export default function DashboardClient() {
 
           {tab === 'current' && (
             <motion.div key="current" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
-              {loading ? <SkeletonCard /> :
-               currentMessage ? <CurrentMessageCard message={currentMessage} t={t} /> :
+              {loading ? <SkeletonCard isLight={isLight} /> :
+               currentMessage ? <CurrentMessageCard message={currentMessage} t={t} isLight={isLight} /> :
                <EmptyState icon={<Inbox className="w-8 h-8" style={{ color: 'var(--text-muted)' }} />}
                  title={t('dashboard.no_pending')}
                  subtitle="All your messages have replies, or you haven't sent any yet."
-                 action={{ label: t('dashboard.send_first'), onClick: () => router.push('/send-message') }} />}
+                 action={{ label: t('dashboard.send_first'), onClick: () => router.push('/send-message') }}
+                 isLight={isLight} />}
             </motion.div>
           )}
 
@@ -147,19 +144,22 @@ export default function DashboardClient() {
             <motion.div key="history" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-3">
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                   style={{
-                    background: showFilters || activeFilterCount > 0 ? 'rgba(201,168,76,0.1)' : 'var(--bg-card)',
-                    border: `1px solid ${showFilters || activeFilterCount > 0 ? 'rgba(201,168,76,0.3)' : 'var(--border-subtle)'}`,
-                    color: showFilters || activeFilterCount > 0 ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                    background: showFilters || activeFilterCount > 0 ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                    border: `1px solid ${showFilters || activeFilterCount > 0 ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    color: showFilters || activeFilterCount > 0 ? 'var(--accent)' : 'var(--text-secondary)',
                   }}>
                   <Filter className="w-3.5 h-3.5" />
                   {t('common.filters')}
                   {activeFilterCount > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-[#C9A84C] text-[#0A0A0F] text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+                    <span className="w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+                      style={{ background: 'var(--accent)' }}>{activeFilterCount}</span>
                   )}
                 </button>
-                <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>{filteredMessages.length} messages</span>
+                <span className="text-sm font-semibold ml-auto" style={{ color: isLight ? '#7B5EA7' : 'var(--accent)' }}>
+                  {filteredMessages.length} messages
+                </span>
               </div>
 
               <AnimatePresence>
@@ -171,18 +171,18 @@ export default function DashboardClient() {
                       <div>
                         <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Leader</p>
                         <FilterPills options={[{ id: 'all', label: t('common.all') }, ...uniqueLeaders.map(l => ({ id: l.id, label: l.display_name }))]}
-                          value={filterLeader} onChange={setFilterLeader} />
+                          value={filterLeader} onChange={setFilterLeader} isLight={isLight} />
                       </div>
                     )}
                     <div>
                       <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Sort</p>
                       <FilterPills options={[{ id: 'newest', label: t('common.newest') }, { id: 'oldest', label: t('common.oldest') }]}
-                        value={filterSort} onChange={v => setFilterSort(v as FilterSort)} />
+                        value={filterSort} onChange={v => setFilterSort(v as FilterSort)} isLight={isLight} />
                     </div>
                     <div>
                       <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Reply Type</p>
                       <FilterPills options={[{ id: 'all', label: t('common.all') }, { id: 'text', label: 'Text' }, { id: 'audio', label: 'Audio' }]}
-                        value={filterType} onChange={v => setFilterType(v as FilterType)} />
+                        value={filterType} onChange={v => setFilterType(v as FilterType)} isLight={isLight} />
                     </div>
                     {activeFilterCount > 0 && (
                       <button onClick={() => { setFilterLeader('all'); setFilterSort('newest'); setFilterType('all'); }}
@@ -194,15 +194,17 @@ export default function DashboardClient() {
                 )}
               </AnimatePresence>
 
-              {loading ? <>{[0,1,2].map(i => <SkeletonCard key={i} />)}</> :
+              {loading ? <>{[0,1].map(i => <SkeletonCard key={i} isLight={isLight} />)}</> :
                filteredMessages.length === 0 ? (
                 <EmptyState icon={<MessageSquare className="w-8 h-8" style={{ color: 'var(--text-muted)' }} />}
                   title={t('dashboard.no_replies')}
-                  subtitle={activeFilterCount > 0 ? 'Try adjusting your filters.' : 'Replies from leaders will appear here.'} />
+                  subtitle={activeFilterCount > 0 ? 'Try adjusting your filters.' : 'Replies from leaders will appear here.'}
+                  isLight={isLight} />
                ) : filteredMessages.map((msg, i) => (
                 <MessageReplyCard key={msg.id} message={msg} index={i}
                   playingAudio={playingAudio} setPlayingAudio={setPlayingAudio}
-                  onDownloadAudio={downloadAudio} onDownloadPDF={downloadPDF} t={t} />
+                  onDownloadAudio={downloadAudio} onDownloadPDF={downloadPDF}
+                  t={t} isLight={isLight} />
                ))}
             </motion.div>
           )}
@@ -212,22 +214,23 @@ export default function DashboardClient() {
   );
 }
 
-// ─── Sub-components ───────────────────────────────────
-
-function CurrentMessageCard({ message, t }: { message: Message; t: (k: string) => string }) {
+function CurrentMessageCard({ message, t, isLight }: { message: Message; t: any; isLight: boolean }) {
   const leader = (message as any).leaders;
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)' }}>
-            <span className="text-sm font-bold text-gold">{leader?.display_name?.charAt(0) || 'L'}</span>
+      className="rounded-2xl overflow-hidden"
+      style={{ background: isLight ? '#FFFFFF' : 'var(--msg-card-bg)', border: `1px solid ${isLight ? '#E0DFEE' : 'var(--msg-card-border)'}`, boxShadow: isLight ? '0 4px 20px rgba(100,100,180,0.1)' : 'none' }}>
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-bold text-lg"
+            style={{ background: 'var(--send-btn-bg)' }}>
+            {leader?.display_name?.charAt(0) || 'L'}
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('dashboard.to')}: {leader?.display_name}</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(message.created_at)}</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {t('dashboard.to')}: <span style={{ color: 'var(--accent)' }}>{leader?.display_name}</span>
+              <span className="font-normal ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(message.created_at)}</span>
+            </p>
           </div>
           {message.is_emergency && (
             <span className={cn('text-[10px] px-2 py-0.5 rounded-full border', getEmergencyColor(message.message_type))}>
@@ -235,74 +238,84 @@ function CurrentMessageCard({ message, t }: { message: Message; t: (k: string) =
             </span>
           )}
         </div>
+        {message.content && <p className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{message.content}</p>}
+        {message.media_url && <MediaAttachment url={message.media_url} type={message.media_type || 'document'} isLight={isLight} />}
       </div>
-      <div className="px-5 py-4">
-        {message.content && <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{message.content}</p>}
-        {message.media_url && <MediaAttachment url={message.media_url} type={message.media_type || 'document'} />}
-      </div>
-      <div className="mx-5 mb-5 rounded-xl px-4 py-3 flex items-center gap-2.5"
-        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-        <div className="w-2 h-2 rounded-full bg-[#C9A84C] animate-pulse flex-shrink-0" />
-        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('dashboard.awaiting')} {leader?.display_name}...</p>
+      {/* Awaiting reply - yellow card like Figma */}
+      <div className="mx-5 mb-5 rounded-2xl px-4 py-3 flex items-center gap-2.5"
+        style={{ background: 'var(--awaiting-bg)', border: `1px solid var(--awaiting-border)` }}>
+        <div className="w-2.5 h-2.5 rounded-full animate-pulse flex-shrink-0"
+          style={{ background: 'var(--accent)' }} />
+        <p className="text-sm font-medium" style={{ color: 'var(--awaiting-text)' }}>
+          {t('dashboard.awaiting')} {leader?.display_name}...
+        </p>
       </div>
     </motion.div>
   );
 }
 
-function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDownloadAudio, onDownloadPDF, t }: {
-  message: Message; index: number; playingAudio: string | null;
-  setPlayingAudio: (id: string | null) => void;
-  onDownloadAudio: (url: string, id: string) => void;
-  onDownloadPDF: (content: string, leaderName: string, msgContent: string) => void;
-  t: (k: string) => string;
-}) {
+function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDownloadAudio, onDownloadPDF, t, isLight }: any) {
   const leader = (message as any).leaders;
   const reply = Array.isArray((message as any).replies) ? (message as any).replies[0] : (message as any).replies;
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}
-      className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+      className="rounded-2xl overflow-hidden"
+      style={{ background: isLight ? '#FFF8EE' : 'var(--msg-card-bg)', border: `1px solid ${isLight ? '#FFE0B0' : 'var(--msg-card-border)'}`, boxShadow: isLight ? '0 2px 12px rgba(245,166,35,0.1)' : 'none' }}>
+
+      {/* Your message */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-2 mb-2">
-          <MessageSquare className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{t('dashboard.your_message')}</p>
-          <span className="ml-auto text-xs" style={{ color: 'var(--border)' }}>{formatRelativeTime(message.created_at)}</span>
+          <MessageSquare className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>{t('dashboard.your_message')}</p>
+          <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(message.created_at)}</span>
         </div>
         {message.is_emergency && (
-          <span className={cn('inline-flex items-center text-[10px] px-2 py-0.5 rounded-full border mb-2', getEmergencyColor(message.message_type))}>
+          <span className="inline-flex items-center text-xs px-3 py-1 rounded-full text-white font-semibold mb-2"
+            style={{ background: 'var(--accent)' }}>
             {getMessageTypeLabel(message.message_type)}
           </span>
         )}
-        {message.content && <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{message.content}</p>}
-        {message.media_url && <div className="mt-2"><MediaAttachment url={message.media_url} type={message.media_type || 'document'} /></div>}
+        {message.content && <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{message.content}</p>}
+        {message.media_url && <div className="mt-2"><MediaAttachment url={message.media_url} type={message.media_type || 'document'} isLight={isLight} /></div>}
       </div>
-      <div className="flex items-center gap-3 px-5 py-2" style={{ background: 'var(--bg-secondary)' }}>
-        <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
-        <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.15)' }}>
-            <span className="text-[9px] font-bold text-gold">{leader?.display_name?.charAt(0)}</span>
-          </div>
-          <span className="text-xs font-medium text-gold">{leader?.display_name}</span>
+
+      {/* Leader divider */}
+      <div className="flex items-center gap-3 px-5 py-2.5"
+        style={{ borderTop: `1px solid ${isLight ? '#FFD080' : 'var(--border-subtle)'}`, borderBottom: `1px solid ${isLight ? '#FFD080' : 'var(--border-subtle)'}` }}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+          style={{ background: 'var(--send-btn-bg)' }}>
+          {leader?.display_name?.charAt(0)}
         </div>
-        <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+        <span className="text-sm font-bold" style={{ color: isLight ? '#3D3D8F' : 'var(--text-primary)' }}>{leader?.display_name}</span>
       </div>
+
+      {/* Reply */}
       {reply && (
-        <div className="px-5 pt-4 pb-5">
-          <div className="flex items-center gap-2 mb-3">
-            {reply.reply_type === 'audio' ? <Mic className="w-3.5 h-3.5 text-gold" /> : <FileText className="w-3.5 h-3.5 text-gold" />}
-            <p className="text-xs uppercase tracking-wider text-gold">{t('dashboard.reply')}</p>
-            <span className="ml-auto text-xs" style={{ color: 'var(--border)' }}>{formatRelativeTime(reply.created_at)}</span>
+        <div className="px-5 pb-5">
+          {/* Reply header pill */}
+          <div className="flex items-center justify-between mt-3 mb-3 px-4 py-2 rounded-2xl text-white"
+            style={{ background: 'var(--reply-header-bg)' }}>
+            <div className="flex items-center gap-2">
+              {reply.reply_type === 'audio' ? <Mic className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+              <span className="text-xs font-bold uppercase tracking-wider">{t('dashboard.reply')}</span>
+            </div>
+            <span className="text-xs opacity-80">{formatRelativeTime(reply.created_at)}</span>
           </div>
+
           {reply.reply_type === 'audio' && reply.audio_url ? (
             <AudioPlayer url={reply.audio_url} messageId={message.id}
               isPlaying={playingAudio === message.id}
-              onToggle={id => setPlayingAudio(playingAudio === id ? null : id)}
+              onToggle={(id: string) => setPlayingAudio(playingAudio === id ? null : id)}
               onDownload={() => onDownloadAudio(reply.audio_url, message.id)}
-              t={t} />
+              isLight={isLight} t={t} />
           ) : (
             <>
-              <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-primary)' }}>{reply.content}</p>
+              <div className="rounded-xl p-4 mb-3"
+                style={{ background: isLight ? '#FFFFFF' : 'var(--bg-secondary)', border: `1px solid ${isLight ? '#E8E8F0' : 'var(--border-subtle)'}` }}>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{reply.content}</p>
+              </div>
               <button onClick={() => onDownloadPDF(reply.content!, leader?.display_name, message.content || '')}
-                className="flex items-center gap-1.5 text-xs transition-colors" style={{ color: 'var(--text-secondary)' }}>
+                className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 <Download className="w-3.5 h-3.5" /> {t('dashboard.download_pdf')}
               </button>
             </>
@@ -313,16 +326,10 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
   );
 }
 
-function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, t }: {
-  url: string; messageId: string; isPlaying: boolean;
-  onToggle: (id: string) => void; onDownload: () => void; t: (k: string) => string;
-}) {
+function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, isLight, t }: any) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const [progress2, setProgress2] = useState(0);
-  const [duration2, setDuration2] = useState(0);
 
   useEffect(() => {
     const audio = new Audio(url);
@@ -342,26 +349,24 @@ function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, t }: {
   const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
   return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+    <div className="rounded-xl p-3 mb-3" style={{ background: isLight ? '#FFFFFF' : 'var(--bg-secondary)', border: `1px solid ${isLight ? '#E8E8F0' : 'var(--border-subtle)'}` }}>
       <div className="flex items-center gap-3">
         <button onClick={() => onToggle(messageId)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-gold flex-shrink-0"
-          style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)' }}>
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+          style={{ background: 'var(--send-btn-bg)' }}>
           {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Volume2 className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
+          <div className="flex justify-between mb-1.5">
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Audio Reply</span>
-            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>{fmt(duration)}</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{fmt(duration)}</span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-            <div className="h-full rounded-full bg-gradient-to-r from-[#C9A84C] to-[#E8C97A] transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: 'var(--send-btn-bg)' }} />
           </div>
         </div>
-        <button onClick={onDownload}
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+        <button onClick={onDownload} className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
           <Download className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -369,7 +374,7 @@ function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, t }: {
   );
 }
 
-function MediaAttachment({ url, type }: { url: string; type: string }) {
+function MediaAttachment({ url, type, isLight }: { url: string; type: string; isLight: boolean }) {
   const [imgError, setImgError] = useState(false);
   if (type === 'photo' && !imgError) {
     return (
@@ -381,24 +386,25 @@ function MediaAttachment({ url, type }: { url: string; type: string }) {
   return (
     <a href={url} target="_blank" rel="noopener noreferrer"
       className="mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors"
-      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-      <FileText className="w-4 h-4 text-gold" />
+      style={{ background: isLight ? '#FFFBEB' : 'var(--bg-secondary)', border: `1px solid ${isLight ? '#FFE090' : 'var(--border-subtle)'}` }}>
+      <FileText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
       <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>View {type} attachment</span>
     </a>
   );
 }
 
-function EmptyState({ icon, title, subtitle, action }: { icon: React.ReactNode; title: string; subtitle: string; action?: { label: string; onClick: () => void } }) {
+function EmptyState({ icon, title, subtitle, action, isLight }: any) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl p-8 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+      className="rounded-2xl p-8 text-center"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>{icon}</div>
+        style={{ background: 'var(--bg-elevated)' }}>{icon}</div>
       <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{title}</p>
       <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
       {action && (
-        <button onClick={action.onClick} className="px-4 py-2 rounded-xl text-sm font-medium transition-colors text-gold"
-          style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)' }}>
+        <button onClick={action.onClick} className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+          style={{ background: 'var(--send-btn-bg)' }}>
           {action.label}
         </button>
       )}
@@ -406,7 +412,7 @@ function EmptyState({ icon, title, subtitle, action }: { icon: React.ReactNode; 
   );
 }
 
-function SkeletonCard() {
+function SkeletonCard({ isLight }: { isLight: boolean }) {
   return (
     <div className="rounded-2xl p-5 space-y-3 animate-pulse" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center gap-3">
@@ -416,22 +422,22 @@ function SkeletonCard() {
           <div className="h-2 rounded w-20" style={{ background: 'var(--bg-elevated)' }} />
         </div>
       </div>
-      <div className="h-3 rounded w-full" style={{ background: 'var(--bg-elevated)' }} />
+      <div className="h-3 rounded" style={{ background: 'var(--bg-elevated)' }} />
       <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-elevated)' }} />
     </div>
   );
 }
 
-function FilterPills({ options, value, onChange }: { options: { id: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+function FilterPills({ options, value, onChange, isLight }: any) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {options.map(opt => (
+      {options.map((opt: any) => (
         <button key={opt.id} onClick={() => onChange(opt.id)}
           className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
           style={{
-            background: value === opt.id ? 'rgba(201,168,76,0.15)' : 'var(--bg-secondary)',
-            color: value === opt.id ? 'var(--accent-gold)' : 'var(--text-secondary)',
-            border: `1px solid ${value === opt.id ? 'rgba(201,168,76,0.3)' : 'var(--border-subtle)'}`,
+            background: value === opt.id ? 'var(--send-btn-bg)' : 'var(--bg-elevated)',
+            color: value === opt.id ? 'white' : 'var(--text-secondary)',
+            border: 'none',
           }}>
           {opt.label}
         </button>

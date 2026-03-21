@@ -23,10 +23,10 @@ export default function Button({
   
   const variants = {
     gold: 'bg-gradient-to-r from-[#C9A84C] via-[#E8C97A] to-[#C9A84C] text-[#0A0A0F] shadow-[0_0_20px_rgba(201,168,76,0.3)] hover:shadow-[0_0_30px_rgba(201,168,76,0.5)] active:scale-95',
-    ghost: 'bg-[#1A1A26] border border-[#3A3A52] text-[#F0EDE8] hover:bg-[#22223A] hover:border-[#C9A84C]/40 active:scale-95',
+    ghost: 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[#C9A84C]/40 active:scale-95',
     danger: 'bg-[#E05252]/20 border border-[#E05252]/40 text-[#E05252] hover:bg-[#E05252]/30 active:scale-95',
     emergency: 'bg-[#E05252] text-white shadow-[0_0_20px_rgba(224,82,82,0.3)] hover:shadow-[0_0_30px_rgba(224,82,82,0.5)] active:scale-95',
-    secondary: 'bg-[#22223A] text-[#9A9AB0] hover:text-[#F0EDE8] hover:bg-[#2A2A3E] active:scale-95',
+    secondary: 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] active:scale-95',
   };
 
   const sizes = {

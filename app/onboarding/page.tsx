@@ -72,7 +72,7 @@ export default function OnboardingPage() {
   const currentStepNum = Math.min(steps[step], totalSteps);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] flex flex-col">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col">
       {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#C9A84C]/5 rounded-full blur-3xl" />
@@ -80,7 +80,7 @@ export default function OnboardingPage() {
 
       {/* Progress bar */}
       {step !== 'welcome' && step !== 'done' && (
-        <div className="fixed top-0 left-0 right-0 h-0.5 bg-[#1A1A26] z-50">
+        <div className="fixed top-0 left-0 right-0 h-0.5 bg-[var(--bg-card)] z-50">
           <motion.div
             className="h-full bg-gradient-to-r from-[#C9A84C] to-[#E8C97A]"
             initial={{ width: 0 }}
@@ -129,7 +129,7 @@ export default function OnboardingPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-3xl font-bold text-[#F0EDE8] mb-4"
+                className="text-3xl font-bold text-[var(--text-primary)] mb-4"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 Welcome
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="text-[#9A9AB0] text-sm leading-relaxed mb-10"
+                className="text-[var(--text-secondary)] text-sm leading-relaxed mb-10"
               >
                 Your groups have been verified. Let&apos;s set up your profile to get started.
               </motion.p>
@@ -150,13 +150,13 @@ export default function OnboardingPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl p-4 mb-8 text-left"
+                  className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl p-4 mb-8 text-left"
                 >
-                  <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-3">Your Groups</p>
+                  <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-3">Your Groups</p>
                   {onboardingData.internalGroups.map((g: any) => (
                     <div key={g.id} className="flex items-center gap-2 py-1.5">
                       <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
-                      <span className="text-[#F0EDE8] text-sm">{g.name}</span>
+                      <span className="text-[var(--text-primary)] text-sm">{g.name}</span>
                     </div>
                   ))}
                 </motion.div>
@@ -187,8 +187,8 @@ export default function OnboardingPage() {
               <div className="w-12 h-12 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/30 flex items-center justify-center mb-6">
                 <User className="w-5 h-5 text-[#C9A84C]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#F0EDE8] mb-2">Your Name</h2>
-              <p className="text-[#9A9AB0] text-sm mb-8">How should we address you?</p>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Your Name</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-8">How should we address you?</p>
 
               <Input
                 label="Full Name"
@@ -231,8 +231,8 @@ export default function OnboardingPage() {
               <div className="w-12 h-12 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/30 flex items-center justify-center mb-6">
                 <MapPin className="w-5 h-5 text-[#C9A84C]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#F0EDE8] mb-2">Your City</h2>
-              <p className="text-[#9A9AB0] text-sm mb-8">Which city are you from?</p>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Your City</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-8">Which city are you from?</p>
 
               <Input
                 label="City"
@@ -275,9 +275,9 @@ export default function OnboardingPage() {
               <div className="w-12 h-12 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/30 flex items-center justify-center mb-6">
                 <Phone className="w-5 h-5 text-[#C9A84C]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#F0EDE8] mb-2">Phone Number</h2>
-              <p className="text-[#9A9AB0] text-sm mb-2">Optional — you can skip this.</p>
-              <p className="text-[#5A5A72] text-xs mb-8">Your number will only be visible to admins.</p>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Phone Number</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-2">Optional — you can skip this.</p>
+              <p className="text-[var(--text-muted)] text-xs mb-8">Your number will only be visible to admins.</p>
 
               <Input
                 label="Phone Number (Optional)"
@@ -305,7 +305,7 @@ export default function OnboardingPage() {
 
               <button
                 onClick={handleSubmit}
-                className="w-full mt-4 text-[#5A5A72] text-sm hover:text-[#9A9AB0] transition-colors py-2"
+                className="w-full mt-4 text-[var(--text-muted)] text-sm hover:text-[var(--text-secondary)] transition-colors py-2"
               >
                 Skip for now
               </button>
@@ -329,8 +329,8 @@ export default function OnboardingPage() {
               >
                 <CheckCircle2 className="w-12 h-12 text-green-400" />
               </motion.div>
-              <h2 className="text-2xl font-bold text-[#F0EDE8] mb-3">Jay Bhagwanji, {name}!</h2>
-              <p className="text-[#9A9AB0] text-sm">Your profile is set up. Taking you home...</p>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-3">Jay Bhagwanji, {name}!</h2>
+              <p className="text-[var(--text-secondary)] text-sm">Your profile is set up. Taking you home...</p>
             </motion.div>
           )}
 

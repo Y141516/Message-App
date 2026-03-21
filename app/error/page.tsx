@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 
 export default function ErrorPage() {
   return (
-    <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center p-6 text-center">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -17,7 +17,7 @@ export default function ErrorPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-xl font-semibold text-[#F0EDE8] mb-3"
+        className="text-xl font-semibold text-[var(--text-primary)] mb-3"
       >
         Something went wrong
       </motion.h1>
@@ -25,7 +25,7 @@ export default function ErrorPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="text-[#9A9AB0] text-sm max-w-xs leading-relaxed mb-8"
+        className="text-[var(--text-secondary)] text-sm max-w-xs leading-relaxed mb-8"
       >
         We couldn&apos;t connect to the server. Please try again.
       </motion.p>

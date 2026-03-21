@@ -2,19 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendTelegramMessage } from '@/lib/telegram';
 
-// GET /api/leader/queue?telegram_id=xxx — get current queue status
+async function verifyLeader(telegram_id: string) {
+  const { data } = await supabaseAdmin
+    .from('leaders')
+    .select('id, display_name, users!inner(telegram_id, role)')
+    .eq('users.telegram_id', telegram_id)
+    .single();
+  return data;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const telegram_id = searchParams.get('telegram_id');
     if (!telegram_id) return NextResponse.json({ error: 'Missing telegram_id' }, { status: 400 });
 
-    const { data: leader } = await supabaseAdmin
-      .from('leaders')
-      .select('id, display_name, users!inner(telegram_id)')
-      .eq('users.telegram_id', telegram_id)
-      .single();
-
+    const leader = await verifyLeader(telegram_id);
     if (!leader) return NextResponse.json({ error: 'Leader not found' }, { status: 404 });
 
     const { data: queue } = await supabaseAdmin
@@ -31,32 +34,23 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/leader/queue — open or close queue
 export async function POST(req: NextRequest) {
   try {
     const { telegram_id, action, message_limit } = await req.json();
     if (!telegram_id || !action) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    // Get leader
-    const { data: leaderRow } = await supabaseAdmin
-      .from('leaders')
-      .select('id, display_name, users!inner(telegram_id)')
-      .eq('users.telegram_id', telegram_id)
-      .single();
-
+    const leaderRow = await verifyLeader(telegram_id);
     if (!leaderRow) return NextResponse.json({ error: 'Leader not found' }, { status: 404 });
 
     if (action === 'open') {
       const limit = message_limit || 100;
 
-      // Close any existing open queues first
       await supabaseAdmin
         .from('queues')
         .update({ is_open: false, closed_at: new Date().toISOString() })
         .eq('leader_id', leaderRow.id)
         .eq('is_open', true);
 
-      // Create new queue
       const { data: queue, error } = await supabaseAdmin
         .from('queues')
         .insert({
@@ -71,9 +65,8 @@ export async function POST(req: NextRequest) {
 
       if (error) throw error;
 
-      // Notify all users via Telegram bot
-      // Fire and forget — don't await so queue open response isn't delayed
-      void notifyAllUsers(leaderRow.display_name, limit);
+      // Notify ALL users — fire and forget
+      void notifyUsersQueueOpen(leaderRow.display_name, limit);
 
       return NextResponse.json({ success: true, queue });
 
@@ -87,6 +80,11 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (error) throw error;
+
+      // Notify users queue closed + notify leader with stats
+      void notifyUsersQueueClosed(leaderRow.display_name, queue?.messages_received || 0);
+      void notifyLeaderQueueStats(telegram_id, leaderRow.display_name, queue?.messages_received || 0, queue?.message_limit || 0);
+
       return NextResponse.json({ success: true, queue });
     }
 
@@ -96,26 +94,52 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function notifyAllUsers(leaderName: string, limit: number) {
+// ─── Notification helpers ─────────────────────────────────
+
+async function notifyUsersQueueOpen(leaderName: string, limit: number) {
   const { data: users } = await supabaseAdmin
     .from('users')
     .select('telegram_id')
     .eq('role', 'user')
     .eq('is_active', true);
 
-  if (!users) return;
+  if (!users?.length) return;
 
-  const message = `🟢 ${leaderName} ji has opened the queue for ${limit} messages.\n\nOpen the app to send your message now.`;
+  const message = `🟢 *Queue Opened!*\n\n${leaderName} ji has opened the queue for *${limit} messages*.\n\nOpen the app now to send your message! 🙏`;
 
-  // Send in batches to avoid Telegram rate limits
+  // Send in batches of 25 to respect Telegram rate limits
   const batchSize = 25;
   for (let i = 0; i < users.length; i += batchSize) {
     const batch = users.slice(i, i + batchSize);
-    await Promise.allSettled(
-      batch.map(u => sendTelegramMessage(u.telegram_id, message))
-    );
+    await Promise.allSettled(batch.map(u => sendTelegramMessage(u.telegram_id, message)));
     if (i + batchSize < users.length) {
-      await new Promise(r => setTimeout(r, 1000)); // 1s delay between batches
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
+}
+
+async function notifyUsersQueueClosed(leaderName: string, totalReceived: number) {
+  const { data: users } = await supabaseAdmin
+    .from('users')
+    .select('telegram_id')
+    .eq('role', 'user')
+    .eq('is_active', true);
+
+  if (!users?.length) return;
+
+  const message = `🔴 *Queue Closed*\n\n${leaderName} ji's queue is now closed.\n\n${totalReceived} messages were received. You will receive a reply soon. 🙏`;
+
+  const batchSize = 25;
+  for (let i = 0; i < users.length; i += batchSize) {
+    const batch = users.slice(i, i + batchSize);
+    await Promise.allSettled(batch.map(u => sendTelegramMessage(u.telegram_id, message)));
+    if (i + batchSize < users.length) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+}
+
+async function notifyLeaderQueueStats(leaderTelegramId: string, leaderName: string, received: number, limit: number) {
+  const message = `📊 *Queue Summary — ${leaderName} ji*\n\nTotal messages received: *${received}* / ${limit}\n\nOpen the app to start replying. 🙏`;
+  await sendTelegramMessage(leaderTelegramId, message);
 }

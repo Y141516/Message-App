@@ -138,23 +138,23 @@ export default function ReplyClient() {
 
   if (sent) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center p-6 text-center">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
           className="w-24 h-24 rounded-full bg-green-500/10 border-2 border-green-500/40 flex items-center justify-center mb-6">
           <CheckCircle2 className="w-12 h-12 text-green-400" />
         </motion.div>
         <motion.h2 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="text-xl font-bold text-[#F0EDE8] mb-2">Reply Sent!</motion.h2>
+          className="text-xl font-bold text-[var(--text-primary)] mb-2">Reply Sent!</motion.h2>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-          className="text-[#9A9AB0] text-sm">User has been notified via Telegram</motion.p>
+          className="text-[var(--text-secondary)] text-sm">User has been notified via Telegram</motion.p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#C9A84C] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -162,8 +162,8 @@ export default function ReplyClient() {
 
   if (!message) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-[#F0EDE8] text-lg font-medium mb-2">Message not found</p>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-[var(--text-primary)] text-lg font-medium mb-2">Message not found</p>
         <button onClick={() => router.back()} className="text-[#C9A84C] text-sm">Go back</button>
       </div>
     );
@@ -181,21 +181,21 @@ export default function ReplyClient() {
 
         {/* Sender info */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl p-4">
+          className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C9A84C]/20 to-[#8A6F2E]/10 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
               <span className="text-[#C9A84C] font-bold">{sender?.name?.charAt(0)?.toUpperCase() || '?'}</span>
             </div>
             <div className="flex-1">
-              <p className="text-[#F0EDE8] text-sm font-semibold">{sender?.name}</p>
+              <p className="text-[var(--text-primary)] text-sm font-semibold">{sender?.name}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {sender?.city && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-[#5A5A72]">
+                  <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]">
                     <MapPin className="w-2.5 h-2.5" />{sender.city}
                   </span>
                 )}
                 {groups.map((g: string) => (
-                  <span key={g} className="flex items-center gap-0.5 text-[10px] text-[#5A5A72]">
+                  <span key={g} className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]">
                     <Users className="w-2.5 h-2.5" />{g}
                   </span>
                 ))}
@@ -208,29 +208,29 @@ export default function ReplyClient() {
                   {getMessageTypeLabel(message.message_type).replace(' Emergency', '')}
                 </span>
               )}
-              <span className="text-[#3A3A52] text-[10px]">{formatRelativeTime(message.created_at)}</span>
+              <span className="text-[var(--text-muted)] text-[10px]">{formatRelativeTime(message.created_at)}</span>
             </div>
           </div>
         </motion.div>
 
         {/* Message content */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl p-4">
-          <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2">Message</p>
+          className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl p-4">
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Message</p>
           {message.content && (
-            <p className="text-[#F0EDE8] text-sm leading-relaxed">{message.content}</p>
+            <p className="text-[var(--text-primary)] text-sm leading-relaxed">{message.content}</p>
           )}
           {message.media_url && (
             <a href={message.media_url} target="_blank" rel="noopener noreferrer"
-              className="mt-2 flex items-center gap-2 bg-[#12121A] border border-[#2A2A3E] rounded-xl px-3 py-2.5 hover:border-[#C9A84C]/30 transition-colors">
+              className="mt-2 flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 hover:border-[#C9A84C]/30 transition-colors">
               {message.media_type === 'photo' ? <Image className="w-4 h-4 text-[#C9A84C]" /> :
                message.media_type === 'video' ? <FileVideo className="w-4 h-4 text-[#C9A84C]" /> :
                <FileAudio className="w-4 h-4 text-[#C9A84C]" />}
-              <span className="text-[#9A9AB0] text-xs">View {message.media_type} attachment</span>
+              <span className="text-[var(--text-secondary)] text-xs">View {message.media_type} attachment</span>
             </a>
           )}
           {!message.content && !message.media_url && (
-            <p className="text-[#5A5A72] text-sm italic">(No text content)</p>
+            <p className="text-[var(--text-muted)] text-sm italic">(No text content)</p>
           )}
         </motion.div>
 
@@ -242,8 +242,8 @@ export default function ReplyClient() {
               <CheckCircle2 className="w-3 h-3" /> Already Replied
             </p>
             {message.replies[0].reply_type === 'text'
-              ? <p className="text-[#F0EDE8] text-sm">{message.replies[0].content}</p>
-              : <p className="text-[#9A9AB0] text-sm italic">Audio reply sent</p>
+              ? <p className="text-[var(--text-primary)] text-sm">{message.replies[0].content}</p>
+              : <p className="text-[var(--text-secondary)] text-sm italic">Audio reply sent</p>
             }
           </motion.div>
         )}
@@ -253,15 +253,15 @@ export default function ReplyClient() {
           <>
             {/* Reply type toggle */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2">Reply Type</p>
-              <div className="flex bg-[#12121A] rounded-2xl p-1 border border-[#2A2A3E]">
+              <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Reply Type</p>
+              <div className="flex bg-[var(--bg-secondary)] rounded-2xl p-1 border border-[var(--border-subtle)]">
                 {(['text', 'audio'] as const).map(t => (
                   <button key={t} onClick={() => setReplyType(t)}
                     className={cn(
                       'flex-1 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5',
                       replyType === t
-                        ? 'bg-[#1A1A26] text-[#C9A84C] border border-[#C9A84C]/20'
-                        : 'text-[#5A5A72] hover:text-[#9A9AB0]'
+                        ? 'bg-[var(--bg-card)] text-[#C9A84C] border border-[#C9A84C]/20'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                     )}>
                     {t === 'text' ? <FileText className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     {t === 'text' ? 'Text' : 'Audio'}
@@ -273,18 +273,18 @@ export default function ReplyClient() {
             {/* Text reply */}
             {replyType === 'text' && (
               <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
-                <p className="text-xs text-[#5A5A72] uppercase tracking-wider mb-2">Your Reply</p>
-                <div className="bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl overflow-hidden focus-within:border-[#C9A84C]/50 transition-colors">
+                <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Your Reply</p>
+                <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden focus-within:border-[#C9A84C]/50 transition-colors">
                   <textarea
                     value={textReply}
                     onChange={e => setTextReply(e.target.value)}
                     placeholder="Type your reply here..."
                     rows={5}
                     maxLength={2000}
-                    className="w-full bg-transparent px-4 pt-4 pb-2 text-[#F0EDE8] text-sm placeholder:text-[#5A5A72] outline-none resize-none"
+                    className="w-full bg-transparent px-4 pt-4 pb-2 text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] outline-none resize-none"
                   />
                   <div className="px-4 pb-3 pt-1">
-                    <span className="text-[#3A3A52] text-xs">{textReply.length}/2000</span>
+                    <span className="text-[var(--text-muted)] text-xs">{textReply.length}/2000</span>
                   </div>
                 </div>
               </motion.div>
@@ -294,14 +294,14 @@ export default function ReplyClient() {
             {replyType === 'audio' && (
               <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}
                 className="space-y-2">
-                <p className="text-xs text-[#5A5A72] uppercase tracking-wider">Audio Reply</p>
+                <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Audio Reply</p>
 
                 {isRecording ? (
                   <div className="bg-red-500/8 border border-red-500/30 rounded-2xl p-5 flex items-center gap-4">
                     <div className="w-3 h-3 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-red-400 text-sm font-semibold">Recording...</p>
-                      <p className="text-[#9A9AB0] text-xs font-mono">{fmt(recordingTime)}</p>
+                      <p className="text-[var(--text-secondary)] text-xs font-mono">{fmt(recordingTime)}</p>
                     </div>
                     <button onClick={stopRecording}
                       className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-white shadow-[0_4px_16px_rgba(224,82,82,0.4)]">
@@ -309,31 +309,31 @@ export default function ReplyClient() {
                     </button>
                   </div>
                 ) : audioBlob ? (
-                  <div className="bg-[#1A1A26] border border-[#C9A84C]/25 rounded-2xl p-4">
+                  <div className="bg-[var(--bg-card)] border border-[#C9A84C]/25 rounded-2xl p-4">
                     <div className="flex items-center gap-3">
                       <button onClick={togglePreview}
                         className="w-10 h-10 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center text-[#C9A84C] flex-shrink-0">
                         {isPlayingPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                       </button>
                       <div className="flex-1">
-                        <p className="text-[#F0EDE8] text-sm font-medium">Recording ready</p>
-                        <p className="text-[#5A5A72] text-xs">{fmt(recordingTime)} • Tap play to preview</p>
+                        <p className="text-[var(--text-primary)] text-sm font-medium">Recording ready</p>
+                        <p className="text-[var(--text-muted)] text-xs">{fmt(recordingTime)} • Tap play to preview</p>
                       </div>
                       <button onClick={() => { setAudioBlob(null); setIsPlayingPreview(false); }}
-                        className="text-[#5A5A72] text-xs hover:text-red-400 transition-colors">
+                        className="text-[var(--text-muted)] text-xs hover:text-red-400 transition-colors">
                         Re-record
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={startRecording}
-                    className="w-full bg-[#1A1A26] border border-[#2A2A3E] rounded-2xl py-6 flex flex-col items-center gap-3 hover:border-[#C9A84C]/30 transition-all active:scale-[0.98]">
+                    className="w-full bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl py-6 flex flex-col items-center gap-3 hover:border-[#C9A84C]/30 transition-all active:scale-[0.98]">
                     <div className="w-14 h-14 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center">
                       <Mic className="w-6 h-6 text-[#C9A84C]" />
                     </div>
                     <div className="text-center">
-                      <p className="text-[#F0EDE8] text-sm font-medium">Tap to Record</p>
-                      <p className="text-[#5A5A72] text-xs mt-0.5">Record your audio reply</p>
+                      <p className="text-[var(--text-primary)] text-sm font-medium">Tap to Record</p>
+                      <p className="text-[var(--text-muted)] text-xs mt-0.5">Record your audio reply</p>
                     </div>
                   </button>
                 )}

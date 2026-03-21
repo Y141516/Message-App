@@ -155,22 +155,65 @@ export async function POST(req: NextRequest) {
 
     // Notify leader via Telegram bot
     try {
-      const { data: leader } = await supabaseAdmin
+      const { data: leaderData } = await supabaseAdmin
         .from('leaders')
         .select('display_name, users(telegram_id)')
         .eq('id', leader_id)
         .single();
 
-      if (leader?.users) {
-        const leaderTelegramId = (leader.users as any).telegram_id;
-        const msgTypeLabel = is_emergency ? '🚨 EMERGENCY' : '📩 New Message';
-        await sendTelegramMessage(
-          leaderTelegramId,
-          `${msgTypeLabel} from ${user.name}\n\n${content ? `"${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"` : '[Media attached]'}`
-        );
+      if (leaderData?.users) {
+        const leaderTelegramId = (leaderData.users as any).telegram_id;
+        if (is_emergency) {
+          // Always notify leader of emergency messages
+          const emergencyLabels: Record<string, string> = {
+            emergency_medical: '🏥 MEDICAL EMERGENCY',
+            emergency_transport: '🚗 TRANSPORT EMERGENCY',
+            emergency_urgent: '🚨 URGENT EMERGENCY',
+          };
+          const label = emergencyLabels[message_type] || '🚨 EMERGENCY';
+          await sendTelegramMessage(
+            leaderTelegramId,
+            `${label}\n\nFrom: ${user.name}\n${content ? `"${content.slice(0, 150)}"` : '[Media attached]'}\n\nOpen the app to reply immediately.`
+          );
+        }
       }
     } catch {
       // Notification failure is non-critical
+    }
+
+    // Check if queue auto-closed after this message
+    if (queue_id) {
+      try {
+        const { data: updatedQueue } = await supabaseAdmin
+          .from('queues')
+          .select('is_open, messages_received, message_limit, leaders(display_name, users(telegram_id))')
+          .eq('id', queue_id)
+          .single();
+
+        if (updatedQueue && !updatedQueue.is_open) {
+          // Queue just auto-closed — notify leader
+          const leaderTelegramId = (updatedQueue.leaders as any)?.users?.telegram_id;
+          const leaderName = (updatedQueue.leaders as any)?.display_name;
+          if (leaderTelegramId) {
+            void sendTelegramMessage(
+              leaderTelegramId,
+              `✅ *Queue Auto-Closed*\n\nYour queue has reached the limit of *${updatedQueue.message_limit}* messages.\n\nTotal received: ${updatedQueue.messages_received}\n\nOpen the app to start replying. 🙏`
+            );
+          }
+          // Notify users queue is now closed
+          const { data: allUsers } = await supabaseAdmin
+            .from('users').select('telegram_id').eq('role', 'user').eq('is_active', true);
+          if (allUsers?.length) {
+            const msg = `🔴 *Queue Closed*\n\n${leaderName} ji's queue is now full and has closed automatically.\n\nYou will receive a reply soon. 🙏`;
+            const batchSize = 25;
+            for (let i = 0; i < allUsers.length; i += batchSize) {
+              const batch = allUsers.slice(i, i + batchSize);
+              void Promise.allSettled(batch.map((u: any) => sendTelegramMessage(u.telegram_id, msg)));
+              if (i + batchSize < allUsers.length) await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+        }
+      } catch { /* non-critical */ }
     }
 
     return NextResponse.json({ success: true, message });

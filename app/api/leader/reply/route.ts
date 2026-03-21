@@ -85,11 +85,15 @@ export async function POST(req: NextRequest) {
     // Notify user via Telegram bot
     try {
       const senderTelegramId = (message.users as any)?.telegram_id;
-      const senderName = (message.users as any)?.name;
       if (senderTelegramId) {
-        const notifText = reply_type === 'audio'
-          ? `🔔 You received an audio reply from ${leader.display_name} ji.\n\nOpen the app to listen.`
-          : `🔔 You received a reply from ${leader.display_name} ji.\n\n"${(content || '').slice(0, 120)}${(content || '').length > 120 ? '...' : ''}"`;
+        let notifText: string;
+        if (reply_type === 'audio') {
+          notifText = `🔔 *Reply Received!*\n\nYou have received an *audio reply* from ${leader.display_name} ji.\n\nOpen the app to listen. 🙏`;
+        } else {
+          const preview = (content || '').slice(0, 120);
+          const truncated = (content || '').length > 120 ? '...' : '';
+          notifText = `🔔 *Reply Received!*\n\nYou have received a reply from ${leader.display_name} ji:\n\n"${preview}${truncated}"\n\nOpen the app to view. 🙏`;
+        }
         await sendTelegramMessage(senderTelegramId, notifText);
       }
     } catch {

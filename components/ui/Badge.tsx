@@ -14,7 +14,7 @@ export default function Badge({ children, variant = 'gold', className }: BadgePr
     red: 'bg-red-500/15 text-red-400 border border-red-500/30',
     blue: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
     purple: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-    muted: 'bg-[#2A2A3E] text-[#9A9AB0] border border-[#3A3A52]',
+    muted: 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)]',
   };
 
   return (

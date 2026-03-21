@@ -4,7 +4,7 @@ import { ShieldX } from 'lucide-react';
 
 export default function NotAuthorizedPage() {
   return (
-    <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center p-6 text-center">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -17,7 +17,7 @@ export default function NotAuthorizedPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-xl font-semibold text-[#F0EDE8] mb-3"
+        className="text-xl font-semibold text-[var(--text-primary)] mb-3"
       >
         Access Denied
       </motion.h1>
@@ -25,7 +25,7 @@ export default function NotAuthorizedPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="text-[#9A9AB0] text-sm max-w-xs leading-relaxed"
+        className="text-[var(--text-secondary)] text-sm max-w-xs leading-relaxed"
       >
         You must be a member of at least one valid Telegram group to access this app. Please contact your administrator.
       </motion.p>
