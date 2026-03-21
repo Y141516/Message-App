@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { validateTelegramInitData, parseTelegramUser, checkUserGroupMembership } from '@/lib/telegram';
 import { supabaseAdmin } from '@/lib/supabase';
