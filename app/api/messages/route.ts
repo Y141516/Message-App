@@ -110,12 +110,14 @@ export async function POST(req: NextRequest) {
     // Emergency count update
     if (is_emergency) {
       const today = new Date().toISOString().split('T')[0];
-      await supabaseAdmin.from('emergency_daily_counts').upsert(
-        { user_id: user.id, date: today, count: 1 },
-        { onConflict: 'user_id,date' }
-      );
-      // Also increment count if already exists
-      await supabaseAdmin.rpc('increment_emergency_count', { p_user_id: user.id, p_date: today }).catch(() => {});
+      try {
+        await supabaseAdmin.rpc('increment_emergency_count', { p_user_id: user.id, p_date: today });
+      } catch {
+        await supabaseAdmin.from('emergency_daily_counts').upsert(
+          { user_id: user.id, date: today, count: 1 },
+          { onConflict: 'user_id,date' }
+        );
+      }
     }
 
     // Notify leader of emergency (non-critical)
