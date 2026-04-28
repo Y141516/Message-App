@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Filter, X, Siren, MessageSquare,
+  Filter, X, Siren, MessageSquare, Mic,
   MapPin, Users, ChevronRight, Inbox,
   CheckCheck, Clock,
 } from 'lucide-react';

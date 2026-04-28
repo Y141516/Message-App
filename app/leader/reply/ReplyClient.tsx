@@ -360,3 +360,46 @@ export default function ReplyClient() {
     </AppShell>
   );
 }
+
+function UserVoicePlayer({ url }: { url: string }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onloadedmetadata = () => setDuration(audio.duration);
+    audio.ontimeupdate = () => setProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0);
+    audio.onended = () => { setIsPlaying(false); setProgress(0); };
+    return () => { audio.pause(); audio.src = ''; };
+  }, [url]);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+    else { audioRef.current.play().catch(() => {}); setIsPlaying(true); }
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+
+  return (
+    <div className="mt-2 rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+      <p className="text-[10px] uppercase tracking-wider mb-2 font-bold" style={{ color: 'var(--accent)' }}>🎤 User Voice Note</p>
+      <div className="flex items-center gap-3">
+        <button onClick={toggle}
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+          style={{ background: 'var(--send-btn-bg)' }}>
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+        </button>
+        <div className="flex-1">
+          <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'var(--border-subtle)' }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: 'var(--send-btn-bg)' }} />
+          </div>
+          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{fmt(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}

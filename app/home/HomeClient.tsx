@@ -3,11 +3,12 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  MessageSquarePlus, LayoutDashboard, BookOpen,
+  MessageSquarePlus, LayoutDashboard, BookOpen, FolderOpen,
   CheckCircle2, Stethoscope, Car, Siren,
   ChevronRight, BarChart2, Lock,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
+import AnnouncementBanner from '@/components/ui/AnnouncementBanner';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';

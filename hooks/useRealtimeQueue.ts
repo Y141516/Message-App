@@ -3,95 +3,75 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Supabase Realtime hook — subscribes to queue + replies table changes
- * Calls the provided callback instantly when data changes
- * Falls back gracefully if realtime is unavailable
+ * Subscribes to queue open/close changes — triggers callback instantly
  */
 export function useRealtimeQueue(onQueueChange: () => void, enabled = true) {
   const channelRef = useRef<any>(null);
-
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
-
     try {
-    // Subscribe to queues table changes (open/close)
-    const channel = supabase
-      .channel('queue-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'queues' },
-        () => { onQueueChange(); }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Realtime] Queue channel connected');
-        }
-      });
-
-    channelRef.current = channel;
-    } catch (err) {
-      console.warn('[Realtime] Queue subscription failed:', err);
-    }
-
-    return () => {
-      if (channelRef.current) {
-        try { supabase.removeChannel(channelRef.current); } catch {}
-      }
-    };
+      const ch = supabase.channel('rt-queues')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => onQueueChange())
+        .subscribe();
+      channelRef.current = ch;
+    } catch (err) { console.warn('[Realtime] queue failed:', err); }
+    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
   }, [enabled]);
 }
 
+/**
+ * Subscribes to new replies — triggers when leader replies to a user
+ */
 export function useRealtimeReplies(onReplyChange: () => void, enabled = true) {
   const channelRef = useRef<any>(null);
-
   useEffect(() => {
-    if (!enabled) return;
-
-    const channel = supabase
-      .channel('reply-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'replies' },
-        () => { onReplyChange(); }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
-        () => { onReplyChange(); }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
+    if (!enabled || typeof window === 'undefined') return;
+    try {
+      const ch = supabase.channel('rt-replies')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'replies' }, () => onReplyChange())
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => onReplyChange())
+        .subscribe();
+      channelRef.current = ch;
+    } catch (err) { console.warn('[Realtime] replies failed:', err); }
+    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
   }, [enabled]);
 }
 
+/**
+ * Subscribes to new messages — triggers instantly when user sends a message
+ * This is the key to real-time for leaders
+ */
 export function useRealtimeMessages(onMessageChange: () => void, enabled = true) {
   const channelRef = useRef<any>(null);
-
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || typeof window === 'undefined') return;
+    try {
+      const ch = supabase.channel('rt-messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+          onMessageChange();
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') console.log('[Realtime] Messages channel live ✅');
+        });
+      channelRef.current = ch;
+    } catch (err) { console.warn('[Realtime] messages failed:', err); }
+    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
+  }, [enabled]);
+}
 
-    const channel = supabase
-      .channel('message-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => { onMessageChange(); }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
+/**
+ * Subscribes to announcements
+ */
+export function useRealtimeAnnouncements(onNew: () => void, enabled = true) {
+  const channelRef = useRef<any>(null);
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
+    try {
+      const ch = supabase.channel('rt-announcements')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, () => onNew())
+        .subscribe();
+      channelRef.current = ch;
+    } catch (err) { console.warn('[Realtime] announcements failed:', err); }
+    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
   }, [enabled]);
 }

@@ -316,3 +316,142 @@ BEGIN
   DO UPDATE SET count = emergency_daily_counts.count + 1;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- UPGRADE: Resources, Announcements
+-- Run these in Supabase SQL Editor
+-- ============================================================
+
+-- Resource categories
+CREATE TABLE IF NOT EXISTS resource_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Resources table
+CREATE TABLE IF NOT EXISTS resources (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  file_url TEXT,                    -- Supabase storage URL
+  file_type TEXT NOT NULL CHECK (file_type IN ('audio', 'pdf', 'image', 'video', 'link')),
+  file_size INTEGER,                -- bytes
+  external_url TEXT,                -- for links
+  thumbnail_url TEXT,
+  category_id UUID REFERENCES resource_categories(id) ON DELETE SET NULL,
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,  -- NULL = global
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_resources_category ON resources(category_id);
+CREATE INDEX IF NOT EXISTS idx_resources_group ON resources(group_id);
+CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(file_type);
+
+-- Announcements table
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  target_group_id UUID REFERENCES groups(id) ON DELETE SET NULL,  -- NULL = all users
+  is_active BOOLEAN DEFAULT TRUE,
+  telegram_sent BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at DESC);
+
+-- Enable RLS
+ALTER TABLE resource_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role full access" ON resource_categories FOR ALL TO service_role USING (true);
+CREATE POLICY "Service role full access" ON resources FOR ALL TO service_role USING (true);
+CREATE POLICY "Service role full access" ON announcements FOR ALL TO service_role USING (true);
+
+-- Enable Realtime on messages table (CRITICAL for instant delivery)
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE queues;
+ALTER PUBLICATION supabase_realtime ADD TABLE replies;
+ALTER PUBLICATION supabase_realtime ADD TABLE announcements;
+
+-- Placeholder resource category
+INSERT INTO resource_categories (name, description, sort_order)
+VALUES ('General', 'General resources for all members', 0)
+ON CONFLICT DO NOTHING;
+
+-- Storage bucket instruction:
+-- Create bucket: "resources" (public: TRUE, max size: 100MB)
+
+-- ============================================================
+-- UPGRADE: RESOURCES + ANNOUNCEMENTS
+-- Run these in Supabase SQL Editor
+-- ============================================================
+
+-- Resources table
+CREATE TABLE IF NOT EXISTS resources (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  file_url TEXT,                    -- Supabase storage URL (null for links)
+  file_type TEXT NOT NULL CHECK (file_type IN ('audio', 'pdf', 'image', 'video', 'link')),
+  link_url TEXT,                    -- For external links
+  category TEXT NOT NULL DEFAULT 'General',
+  is_global BOOLEAN DEFAULT TRUE,   -- TRUE = all users, FALSE = group-specific
+  group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  file_size_kb INTEGER,
+  duration_seconds INTEGER,         -- For audio/video
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_resources_category ON resources(category);
+CREATE INDEX idx_resources_is_global ON resources(is_global);
+CREATE INDEX idx_resources_group_id ON resources(group_id);
+
+-- Announcements table
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  target TEXT NOT NULL DEFAULT 'all' CHECK (target IN ('all', 'group')),
+  group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
+  telegram_sent BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User announcement dismissals (so banner doesn't re-appear)
+CREATE TABLE IF NOT EXISTS announcement_dismissals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  announcement_id UUID NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  dismissed_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, announcement_id)
+);
+
+-- Add user_voice_url to messages (for voice note from user)
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_voice_url TEXT;
+
+-- Enable Realtime on new tables
+ALTER PUBLICATION supabase_realtime ADD TABLE resources;
+ALTER PUBLICATION supabase_realtime ADD TABLE announcements;
+
+-- RLS
+ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcement_dismissals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON resources FOR ALL TO service_role USING (true);
+CREATE POLICY "Service role full access" ON announcements FOR ALL TO service_role USING (true);
+CREATE POLICY "Service role full access" ON announcement_dismissals FOR ALL TO service_role USING (true);
+
+-- Storage bucket for resources (create in Supabase Dashboard)
+-- Create bucket: "resources" (public: TRUE, max size: 100MB)

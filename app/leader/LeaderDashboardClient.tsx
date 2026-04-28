@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Power, MessageSquare, Siren, CheckCheck,
+  Power, MessageSquare, Siren, CheckCheck, Megaphone, Upload,
   TrendingUp, Clock, BarChart2, ChevronRight,
   Users, Zap, Target, Activity,
 } from 'lucide-react';
@@ -317,6 +317,28 @@ export default function LeaderDashboardClient() {
               </p>
             </div>
             <ChevronRight className="w-5 h-5 text-black/50 flex-shrink-0" />
+          </button>
+        </motion.div>
+
+        {/* Announcement button */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+        >
+          <button
+            onClick={() => router.push('/announcements')}
+            className="w-full rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-all"
+            style={{ background: 'rgba(var(--accent-rgb),0.08)', border: '1px solid rgba(var(--accent-rgb),0.25)' }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(var(--accent-rgb),0.15)', color: 'var(--accent)' }}>
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Send Announcement</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Broadcast to all users via Telegram + in-app</p>
+            </div>
+            <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
           </button>
         </motion.div>
 

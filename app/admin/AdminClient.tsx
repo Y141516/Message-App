@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Users, UserCheck, MessageSquare, CheckCheck,
+  Users, UserCheck, MessageSquare, CheckCheck, Megaphone, Upload,
   Siren, Clock, TrendingUp, BarChart2,
   Map, Settings, ChevronRight, RefreshCw,
   UserPlus, Shield,
@@ -166,6 +166,14 @@ export default function AdminClient() {
           <NavCard icon={<Shield className="w-5 h-5" />} label="Manage Leaders"
             sublabel="View leaders, assign or remove leader role"
             color="gold" onClick={() => router.push('/admin/users?role=leader')} />
+
+          <NavCard icon={<Upload className="w-5 h-5" />} label="Upload Resources"
+            sublabel="Add audio, PDFs, images, videos and links"
+            color="purple" onClick={() => router.push('/admin/resources')} />
+
+          <NavCard icon={<Megaphone className="w-5 h-5" />} label="Send Announcement"
+            sublabel="Broadcast to all users via Telegram + in-app"
+            color="gold" onClick={() => router.push('/announcements')} />
         </motion.div>
 
         {/* Refresh button */}
@@ -221,12 +229,13 @@ function MiniStat({ label, value, icon, loading }: { label: string; value: numbe
 
 function NavCard({ icon, label, sublabel, color, onClick }: {
   icon: React.ReactNode; label: string; sublabel: string;
-  color: 'blue' | 'green' | 'gold'; onClick: () => void;
+  color: 'blue' | 'green' | 'gold' | 'purple'; onClick: () => void;
 }) {
   const colors = {
     blue: { bg: 'rgba(74,144,217,0.06)', border: 'rgba(74,144,217,0.18)', icon: 'rgba(74,144,217,0.15)', iconColor: '#4A90D9' },
     green: { bg: 'rgba(76,175,120,0.06)', border: 'rgba(76,175,120,0.18)', icon: 'rgba(76,175,120,0.15)', iconColor: '#4CAF78' },
     gold: { bg: 'rgba(201,168,76,0.06)', border: 'rgba(201,168,76,0.18)', icon: 'rgba(201,168,76,0.15)', iconColor: 'var(--accent-gold)' },
+    purple: { bg: 'rgba(155,93,229,0.06)', border: 'rgba(155,93,229,0.18)', icon: 'rgba(155,93,229,0.15)', iconColor: '#9B5DE5' },
   };
   const c = colors[color];
   return (
