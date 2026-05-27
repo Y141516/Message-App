@@ -194,7 +194,6 @@ export default function HomeClient() {
               labelColor={isLight ? '#B35A00' : '#fb923c'}
               onClick={() => router.push('/send-message?emergency=urgent')} />
           </div>
-          <p className="text-[10px] text-center mt-3" style={{ color: 'var(--text-muted)' }}>{t('home.emergency_limit')}</p>
         </motion.div>
 
       </div>

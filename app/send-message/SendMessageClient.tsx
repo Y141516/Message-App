@@ -172,8 +172,7 @@ export default function SendMessageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === 'limit_reached') toast.error('You have reached your 3 emergency messages for today.');
-        else if (data.error === 'already_sent') toast.error('You already sent a message in this queue.');
+        if (data.error === 'already_sent') toast.error('You already sent a message in this queue.');
         else toast.error(data.message || 'Failed to send');
         return;
       }
@@ -440,11 +439,7 @@ export default function SendMessageClient() {
               <Mic className="w-3 h-3" /> Voice note required before sending
             </p>
           )}
-          {isEmergency && (
-            <p className="text-center text-xs mt-2 flex items-center justify-center gap-1" style={{ color: 'var(--text-muted)' }}>
-              <AlertTriangle className="w-3 h-3" /> Max 3 emergency messages per day
-            </p>
-          )}
+
         </motion.div>
 
       </div>

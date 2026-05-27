@@ -70,28 +70,33 @@ export default function DashboardClient() {
   const activeFilterCount = [filterLeader !== 'all', filterSort !== 'newest', filterType !== 'all'].filter(Boolean).length;
 
   const downloadAudio = (audioUrl: string, messageId: string) => {
+    // Use window.open — the only reliable download method in Telegram WebApp
     const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}&filename=reply-${messageId}.mp3`;
-    const a = document.createElement('a');
-    a.href = proxyUrl; a.download = `reply-${messageId}.mp3`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    window.open(proxyUrl, '_blank');
     toast.success(t('dashboard.download_audio'));
   };
 
   const downloadPDF = (content: string, leaderName: string, msgContent: string) => {
+    // Build HTML and open via data URL — works in Telegram WebApp
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>body{font-family:Arial;max-width:600px;margin:40px auto;color:#333}
-    h2{color:#F5A623}
-    .msg{background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0}
-    .reply{background:#FFF8EE;border-left:4px solid #F5A623;padding:16px}</style>
-    </head><body><h2>Reply from ${leaderName}</h2>
-    <div class="msg">${msgContent}</div>
-    <div class="reply">${content}</div></body></html>`;
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `reply-${Date.now()}.html`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    h2{color:#F5A623;border-bottom:2px solid #F5A623;padding-bottom:8px}
+    .label{font-size:11px;color:#999;text-transform:uppercase;margin:16px 0 6px}
+    .msg{background:#f5f5f5;padding:16px;border-radius:8px;line-height:1.6}
+    .reply{background:#FFF8EE;border-left:4px solid #F5A623;padding:16px;border-radius:0 8px 8px 0;line-height:1.6}
+    </style></head><body>
+    <h2>Reply from ${leaderName}</h2>
+    <div class="label">Your Message</div>
+    <div class="msg">${msgContent || '(No text content)'}</div>
+    <div class="label">Reply from ${leaderName}</div>
+    <div class="reply">${content}</div>
+    </body></html>`;
+
+    // Use proxy API to serve as downloadable file
+    const encoded = encodeURIComponent(html);
+    // For text content, open in new tab (user can save from browser)
+    const dataUrl = `data:text/html;charset=utf-8,${encoded}`;
+    window.open(dataUrl, '_blank');
     toast.success(t('dashboard.download_pdf'));
   };
 

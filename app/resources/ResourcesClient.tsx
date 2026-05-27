@@ -85,15 +85,11 @@ export default function ResourcesClient() {
     };
     const ext = extMap[resource.file_type] || 'bin';
     const filename = `${resource.title.replace(/\s+/g, '-').toLowerCase()}.${ext}`;
-    const proxyUrl = `/api/download?url=${encodeURIComponent(resource.file_url)}&filename=${encodeURIComponent(filename)}&type=${resource.file_type}`;
+    const proxyUrl = `/api/download?url=${encodeURIComponent(resource.file_url)}&filename=${encodeURIComponent(filename)}`;
 
-    const a = document.createElement('a');
-    a.href = proxyUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast.success('Download started');
+    // window.open is the only reliable download in Telegram WebApp
+    window.open(proxyUrl, '_blank');
+    toast.success('Opening file...');
   };
 
   const totalResources = Object.values(byCategory).reduce((sum, arr) => sum + arr.length, 0);
