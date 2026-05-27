@@ -1,77 +1,81 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
-/**
- * Subscribes to queue open/close changes — triggers callback instantly
- */
-export function useRealtimeQueue(onQueueChange: () => void, enabled = true) {
-  const channelRef = useRef<any>(null);
-  useEffect(() => {
-    if (!enabled || typeof window === 'undefined') return;
-    try {
-      const ch = supabase.channel('rt-queues')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => onQueueChange())
-        .subscribe();
-      channelRef.current = ch;
-    } catch (err) { console.warn('[Realtime] queue failed:', err); }
-    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
-  }, [enabled]);
-}
+type Callback = () => void | Promise<void>;
 
 /**
- * Subscribes to new replies — triggers when leader replies to a user
+ * Unified realtime hook — subscribes to ALL relevant table changes.
+ * Works even if Supabase Realtime is not enabled (falls back to polling).
+ * Uses a single channel for all subscriptions to reduce connection overhead.
  */
-export function useRealtimeReplies(onReplyChange: () => void, enabled = true) {
+function useRealtimeTables(
+  tables: string[],
+  onAnyChange: Callback,
+  enabled = true,
+  channelName = 'rt-all'
+) {
   const channelRef = useRef<any>(null);
-  useEffect(() => {
-    if (!enabled || typeof window === 'undefined') return;
-    try {
-      const ch = supabase.channel('rt-replies')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'replies' }, () => onReplyChange())
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => onReplyChange())
-        .subscribe();
-      channelRef.current = ch;
-    } catch (err) { console.warn('[Realtime] replies failed:', err); }
-    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
-  }, [enabled]);
-}
+  const cbRef = useRef(onAnyChange);
+  useEffect(() => { cbRef.current = onAnyChange; });
 
-/**
- * Subscribes to new messages — triggers instantly when user sends a message
- * This is the key to real-time for leaders
- */
-export function useRealtimeMessages(onMessageChange: () => void, enabled = true) {
-  const channelRef = useRef<any>(null);
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
-    try {
-      const ch = supabase.channel('rt-messages')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
-          onMessageChange();
-        })
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') console.log('[Realtime] Messages channel live ✅');
+
+    const connect = () => {
+      try {
+        let channel = supabase.channel(channelName);
+
+        tables.forEach(table => {
+          channel = channel.on(
+            'postgres_changes' as any,
+            { event: '*', schema: 'public', table },
+            () => {
+              console.log(`[Realtime] ${table} changed — refreshing`);
+              cbRef.current();
+            }
+          );
         });
-      channelRef.current = ch;
-    } catch (err) { console.warn('[Realtime] messages failed:', err); }
-    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
-  }, [enabled]);
+
+        channel.subscribe((status: string, err: any) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`[Realtime] ✅ Connected: ${tables.join(', ')}`);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('[Realtime] ⚠️ Connection issue — polling will cover');
+          }
+        });
+
+        channelRef.current = channel;
+      } catch (err) {
+        console.warn('[Realtime] Setup failed:', err);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (channelRef.current) {
+        try { supabase.removeChannel(channelRef.current); } catch {}
+      }
+    };
+  }, [enabled, channelName]);
 }
 
-/**
- * Subscribes to announcements
- */
-export function useRealtimeAnnouncements(onNew: () => void, enabled = true) {
-  const channelRef = useRef<any>(null);
-  useEffect(() => {
-    if (!enabled || typeof window === 'undefined') return;
-    try {
-      const ch = supabase.channel('rt-announcements')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, () => onNew())
-        .subscribe();
-      channelRef.current = ch;
-    } catch (err) { console.warn('[Realtime] announcements failed:', err); }
-    return () => { try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch {} };
-  }, [enabled]);
+// ─── User-facing: queue status + replies ─────────────────────
+export function useRealtimeQueue(onQueueChange: Callback, enabled = true) {
+  useRealtimeTables(['queues'], onQueueChange, enabled, 'rt-queues');
+}
+
+export function useRealtimeReplies(onReplyChange: Callback, enabled = true) {
+  useRealtimeTables(['replies', 'messages'], onReplyChange, enabled, 'rt-replies');
+}
+
+// ─── Leader-facing: new messages ─────────────────────────────
+export function useRealtimeMessages(onMessageChange: Callback, enabled = true) {
+  useRealtimeTables(['messages'], onMessageChange, enabled, 'rt-messages');
+}
+
+// ─── Announcements ───────────────────────────────────────────
+export function useRealtimeAnnouncements(onNew: Callback, enabled = true) {
+  useRealtimeTables(['announcements'], onNew, enabled, 'rt-announcements');
 }

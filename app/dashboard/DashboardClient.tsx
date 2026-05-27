@@ -12,7 +12,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePolling } from '@/hooks/usePolling';
-import { useRealtimeReplies } from '@/hooks/useRealtimeQueue';
+import { useRealtimeReplies, useRealtimeMessages } from '@/hooks/useRealtimeQueue';
 import { Message } from '@/types';
 import { cn, formatRelativeTime, getMessageTypeLabel, getEmergencyColor } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -47,8 +47,12 @@ export default function DashboardClient() {
     } catch {} finally { setLoading(false); }
   };
 
-  usePolling(fetchDashboard, [user?.telegram_id], { interval: 5000, enabled: !!user });
+  // 3s polling fallback
+  usePolling(fetchDashboard, [user?.telegram_id], { interval: 3000, enabled: !!user });
+  // Realtime: instant update when reply arrives
   useRealtimeReplies(fetchDashboard, !!user);
+  // Realtime: instant update when emergency message is sent (own messages)
+  useRealtimeMessages(fetchDashboard, !!user);
 
   const repliedMessages = allMessages.filter(m => m.is_replied);
   const leaderMap = new Map<string, any>();

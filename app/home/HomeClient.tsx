@@ -36,7 +36,7 @@ export default function HomeClient() {
   };
 
   useRealtimeQueue(fetchQueues, !!user);
-  usePolling(fetchQueues, [user?.telegram_id], { interval: 5000, enabled: !!user });
+  usePolling(fetchQueues, [user?.telegram_id], { interval: 3000, enabled: !!user });
 
   const hasOpenQueue = openQueues.length > 0;
 

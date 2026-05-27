@@ -41,7 +41,7 @@ export default function LeaderMessagesClient() {
   usePolling(
     () => { setMessages([]); setPage(0); fetchMessages(0); },
     [tab, filterSort, filterType, filterCity, user?.telegram_id],
-    { interval: 5000, enabled: !!user }
+    { interval: 3000, enabled: !!user }
   );
   // Realtime: instantly show new messages when users send them
   useRealtimeMessages(() => { setMessages([]); setPage(0); fetchMessages(0); }, !!user);
