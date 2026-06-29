@@ -1,32 +1,59 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Megaphone, Send, Users, Globe, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Megaphone, Send, Users, Globe, CheckCircle2 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
+interface Group {
+  id: string;
+  name: string;
+}
+
 export default function AnnouncementsClient() {
   const router = useRouter();
   const { user } = useUserStore();
   const { isLight } = useTheme();
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [target, setTarget] = useState<'all' | 'group'>('all');
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [title, setTitle]             = useState('');
+  const [body, setBody]               = useState('');
+  const [target, setTarget]           = useState<'all' | 'group'>('all');
+  const [allGroups, setAllGroups]     = useState<Group[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [sending, setSending]         = useState(false);
+  const [sent, setSent]               = useState(false);
 
-  const groups = user?.groups || [];
+  // Load groups from DB dynamically
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const res = await fetch('/api/groups');
+        const data = await res.json();
+        setAllGroups(data.groups || []);
+      } catch {
+        // fallback: use user's own groups
+        setAllGroups(user?.groups || []);
+      }
+    };
+    if (user) fetchGroups();
+  }, [user]);
+
+  const toggleGroup = (id: string) => {
+    setSelectedGroupIds(prev =>
+      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    );
+  };
 
   const handleSend = async () => {
-    if (!title.trim()) { toast.error('Please enter a title'); return; }
-    if (!body.trim()) { toast.error('Please enter the announcement body'); return; }
-    if (target === 'group' && !selectedGroupId) { toast.error('Please select a group'); return; }
+    if (!title.trim())                          { toast.error('Please enter a title'); return; }
+    if (!body.trim())                           { toast.error('Please enter the announcement'); return; }
+    if (target === 'group' && selectedGroupIds.length === 0) {
+      toast.error('Please select at least one group'); return;
+    }
 
     setSending(true);
     try {
@@ -36,9 +63,9 @@ export default function AnnouncementsClient() {
         body: JSON.stringify({
           telegram_id: user!.telegram_id,
           title: title.trim(),
-          body: body.trim(),
+          body: body.trim(),                  // NO character limit
           target,
-          group_id: target === 'group' ? selectedGroupId : null,
+          group_ids: target === 'group' ? selectedGroupIds : null,
         }),
       });
       const data = await res.json();
@@ -68,7 +95,9 @@ export default function AnnouncementsClient() {
         </motion.h2>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
           className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          All users have been notified via Telegram
+          {target === 'all'
+            ? 'All users have been notified via Telegram'
+            : `${selectedGroupIds.length} group${selectedGroupIds.length > 1 ? 's' : ''} notified via Telegram`}
         </motion.p>
       </div>
     );
@@ -76,11 +105,11 @@ export default function AnnouncementsClient() {
 
   return (
     <AppShell showNav={false}>
-      <PageHeader title="Send Announcement" subtitle="Notify all users" showBack />
+      <PageHeader title="Send Announcement" subtitle="Notify users" showBack />
 
       <div className="px-4 pb-8 max-w-lg mx-auto space-y-4">
 
-        {/* Info card */}
+        {/* Info banner */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-4 flex items-start gap-3"
           style={{ background: 'rgba(var(--accent-rgb),0.08)', border: '1px solid rgba(var(--accent-rgb),0.25)' }}>
@@ -88,52 +117,88 @@ export default function AnnouncementsClient() {
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Broadcast Announcement</p>
             <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              This will send a Telegram message to all selected users AND show a banner inside the app.
+              Sends a Telegram message to selected users <b>and</b> shows a banner inside the app.
             </p>
           </div>
         </motion.div>
 
         {/* Target selector */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <p className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--text-muted)' }}>Send To</p>
+          <p className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+            Send To
+          </p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setTarget('all')}
-              className="rounded-2xl p-3.5 flex items-center gap-2.5 transition-all"
-              style={{
-                background: target === 'all' ? 'var(--send-btn-bg)' : 'var(--bg-card)',
-                border: `1px solid ${target === 'all' ? 'transparent' : 'var(--border-subtle)'}`,
-              }}>
-              <Globe className="w-4 h-4" style={{ color: target === 'all' ? 'white' : 'var(--text-muted)' }} />
-              <div className="text-left">
-                <p className="text-sm font-semibold" style={{ color: target === 'all' ? 'white' : 'var(--text-primary)' }}>All Users</p>
-                <p className="text-[10px]" style={{ color: target === 'all' ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>Everyone</p>
-              </div>
-            </button>
-            <button onClick={() => setTarget('group')}
-              className="rounded-2xl p-3.5 flex items-center gap-2.5 transition-all"
-              style={{
-                background: target === 'group' ? 'var(--send-btn-bg)' : 'var(--bg-card)',
-                border: `1px solid ${target === 'group' ? 'transparent' : 'var(--border-subtle)'}`,
-              }}>
-              <Users className="w-4 h-4" style={{ color: target === 'group' ? 'white' : 'var(--text-muted)' }} />
-              <div className="text-left">
-                <p className="text-sm font-semibold" style={{ color: target === 'group' ? 'white' : 'var(--text-primary)' }}>Group Only</p>
-                <p className="text-[10px]" style={{ color: target === 'group' ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>Specific group</p>
-              </div>
-            </button>
+            {[
+              { id: 'all',   label: 'All Users',  sub: 'Everyone',        icon: Globe },
+              { id: 'group', label: 'Groups Only', sub: 'Select groups',  icon: Users },
+            ].map(({ id, label, sub, icon: Icon }) => (
+              <button key={id} onClick={() => setTarget(id as any)}
+                className="rounded-2xl p-3.5 flex items-center gap-2.5 transition-all"
+                style={{
+                  background: target === id ? 'var(--send-btn-bg)' : 'var(--bg-card)',
+                  border: `1px solid ${target === id ? 'transparent' : 'var(--border-subtle)'}`,
+                }}>
+                <Icon className="w-4 h-4 flex-shrink-0"
+                  style={{ color: target === id ? 'white' : 'var(--text-muted)' }} />
+                <div className="text-left">
+                  <p className="text-sm font-semibold"
+                    style={{ color: target === id ? 'white' : 'var(--text-primary)' }}>{label}</p>
+                  <p className="text-[10px]"
+                    style={{ color: target === id ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>{sub}</p>
+                </div>
+              </button>
+            ))}
           </div>
 
-          {/* Group picker */}
+          {/* Multi-select group checkboxes */}
           <AnimatePresence>
-            {target === 'group' && groups.length > 0 && (
+            {target === 'group' && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }} className="mt-2 overflow-hidden">
-                <select value={selectedGroupId} onChange={e => setSelectedGroupId(e.target.value)}
-                  className="w-full rounded-xl px-3 py-3 text-sm outline-none"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: selectedGroupId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                  <option value="">Select a group...</option>
-                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
+                exit={{ opacity: 0, height: 0 }} className="mt-3 overflow-hidden space-y-2">
+                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Select groups ({selectedGroupIds.length} selected)
+                </p>
+                {allGroups.length === 0 ? (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading groups...</p>
+                ) : (
+                  allGroups.map(group => {
+                    const isSelected = selectedGroupIds.includes(group.id);
+                    return (
+                      <button key={group.id} onClick={() => toggleGroup(group.id)}
+                        className="w-full rounded-xl p-3.5 flex items-center gap-3 text-left transition-all"
+                        style={{
+                          background: isSelected ? 'rgba(var(--accent-rgb),0.1)' : 'var(--bg-card)',
+                          border: `1px solid ${isSelected ? 'rgba(var(--accent-rgb),0.4)' : 'var(--border-subtle)'}`,
+                        }}>
+                        <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{
+                            background: isSelected ? 'var(--accent)' : 'transparent',
+                            border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                          }}>
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3} />}
+                        </div>
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {group.name}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+                {/* Select all / clear */}
+                {allGroups.length > 0 && (
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setSelectedGroupIds(allGroups.map(g => g.id))}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--accent)' }}>
+                      Select All
+                    </button>
+                    <button onClick={() => setSelectedGroupIds([])}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                      Clear
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -144,7 +209,6 @@ export default function AnnouncementsClient() {
           <p className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--text-muted)' }}>Title</p>
           <input value={title} onChange={e => setTitle(e.target.value)}
             placeholder="e.g. Queue opens tomorrow at 10 AM"
-            maxLength={100}
             className="w-full rounded-xl px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
@@ -152,25 +216,28 @@ export default function AnnouncementsClient() {
           />
         </motion.div>
 
-        {/* Body */}
+        {/* Body — NO character limit */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <p className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--text-muted)' }}>Message</p>
+          <p className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+            Message <span className="normal-case font-normal text-[10px]">(no limit)</span>
+          </p>
           <div className="rounded-2xl overflow-hidden"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
             <textarea value={body} onChange={e => setBody(e.target.value)}
-              placeholder="Write your announcement here..."
-              rows={5} maxLength={500}
+              placeholder="Write your announcement here... No character limit."
+              rows={6}
               className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none resize-none"
               style={{ color: 'var(--text-primary)' }} />
             <div className="px-4 pb-3">
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{body.length}/500</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{body.length} characters</span>
             </div>
           </div>
         </motion.div>
 
         {/* Send button */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <button onClick={handleSend} disabled={sending || !title.trim() || !body.trim()}
+          <button onClick={handleSend}
+            disabled={sending || !title.trim() || !body.trim() || (target === 'group' && selectedGroupIds.length === 0)}
             className="w-full rounded-2xl py-4 flex items-center justify-center gap-2.5 font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'var(--send-btn-bg)', boxShadow: `0 4px 24px rgba(var(--accent-rgb),0.35)` }}>
             {sending
@@ -179,7 +246,7 @@ export default function AnnouncementsClient() {
             }
           </button>
           <p className="text-center text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            Will be sent via Telegram bot + shown in-app
+            Sends via Telegram bot + shows banner in-app
           </p>
         </motion.div>
 

@@ -2,9 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage } from '@/lib/telegram';
+import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
 
-// GET /api/announcements?telegram_id=xxx — get active announcements for user
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -21,7 +20,6 @@ export async function GET(req: NextRequest) {
 
     const userGroupIds = (user.user_groups || []).map((ug: any) => ug.group_id);
 
-    // Get announcements not dismissed by this user
     const { data: dismissed } = await supabaseAdmin
       .from('announcement_dismissals')
       .select('announcement_id')
@@ -31,9 +29,9 @@ export async function GET(req: NextRequest) {
 
     let query = supabaseAdmin
       .from('announcements')
-      .select(`id, title, body, target, group_id, created_at, users!sent_by(name, role)`)
+      .select('id, title, body, target, group_ids, created_at, users!sent_by(name, role)')
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     if (dismissedIds.length > 0) {
       query = query.not('id', 'in', `(${dismissedIds.join(',')})`);
@@ -41,11 +39,15 @@ export async function GET(req: NextRequest) {
 
     const { data: announcements } = await query;
 
-    // Filter: show 'all' target + matching group target
-    const filtered = (announcements || []).filter((a: any) =>
-      a.target === 'all' ||
-      (a.target === 'group' && userGroupIds.includes(a.group_id))
-    );
+    // Filter: 'all' shows to everyone; 'group' shows if user is in any of the target groups
+    const filtered = (announcements || []).filter((a: any) => {
+      if (a.target === 'all') return true;
+      if (a.target === 'group' && a.group_ids) {
+        const targetGroups = Array.isArray(a.group_ids) ? a.group_ids : [];
+        return targetGroups.some((gid: string) => userGroupIds.includes(gid));
+      }
+      return false;
+    });
 
     return NextResponse.json({ announcements: filtered });
   } catch (err) {
@@ -54,10 +56,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/announcements — create + broadcast announcement
 export async function POST(req: NextRequest) {
   try {
-    const { telegram_id, title, body, target, group_id } = await req.json();
+    const { telegram_id, title, body, target, group_ids } = await req.json();
     if (!telegram_id || !title || !body) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
@@ -72,23 +73,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Save announcement
+    // Save — body has NO character limit
     const { data: announcement, error } = await supabaseAdmin
       .from('announcements')
-      .insert({ title, body, sent_by: user.id, target: target || 'all', group_id: group_id || null })
+      .insert({
+        title,
+        body,
+        sent_by: user.id,
+        target: target || 'all',
+        group_ids: group_ids || null, // array of group UUIDs
+      })
       .select()
       .single();
 
     if (error) throw error;
 
-    // Send via Telegram bot — fire and forget
-    void broadcastAnnouncement(user.name, title, body, target, group_id);
-
-    // Update telegram_sent
-    await supabaseAdmin
-      .from('announcements')
-      .update({ telegram_sent: true })
-      .eq('id', announcement.id);
+    // Broadcast via Telegram bot
+    void broadcastAnnouncement(user.name, title, body, target, group_ids);
+    await supabaseAdmin.from('announcements').update({ telegram_sent: true }).eq('id', announcement.id);
 
     return NextResponse.json({ success: true, announcement });
   } catch (err: any) {
@@ -96,16 +98,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// POST /api/announcements/dismiss — user dismisses a banner
 export async function PATCH(req: NextRequest) {
   try {
     const { telegram_id, announcement_id } = await req.json();
     const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('telegram_id', telegram_id)
-      .single();
-
+      .from('users').select('id').eq('telegram_id', telegram_id).single();
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     await supabaseAdmin
@@ -118,31 +115,44 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-async function broadcastAnnouncement(senderName: string, title: string, body: string, target: string, group_id?: string) {
+async function broadcastAnnouncement(
+  senderName: string,
+  title: string,
+  body: string,
+  target: string,
+  group_ids?: string[]
+) {
   let users: any[] = [];
 
   if (target === 'all') {
     const { data } = await supabaseAdmin
-      .from('users')
-      .select('telegram_id')
-      .eq('role', 'user')
-      .eq('is_active', true);
+      .from('users').select('telegram_id').eq('role', 'user').eq('is_active', true);
     users = data || [];
-  } else if (target === 'group' && group_id) {
+  } else if (target === 'group' && group_ids?.length) {
+    // Get users belonging to ANY of the selected groups
     const { data } = await supabaseAdmin
       .from('user_groups')
-      .select('users(telegram_id, is_active)')
-      .eq('group_id', group_id);
+      .select('users!inner(telegram_id, is_active, role)')
+      .in('group_id', group_ids);
     users = (data || [])
       .map((ug: any) => ug.users)
-      .filter((u: any) => u?.is_active);
+      .filter((u: any) => u?.is_active && u?.role === 'user');
+    // Deduplicate by telegram_id
+    const seen = new Set<string>();
+    users = users.filter((u: any) => {
+      if (seen.has(u.telegram_id)) return false;
+      seen.add(u.telegram_id);
+      return true;
+    });
   }
 
-  const message = `📢 *${title}*\n\n${body}\n\n— ${senderName}`;
-  const batchSize = 25;
-  for (let i = 0; i < users.length; i += batchSize) {
-    const batch = users.slice(i, i + batchSize);
-    await Promise.allSettled(batch.map((u: any) => sendTelegramMessage(u.telegram_id, message)));
-    if (i + batchSize < users.length) await new Promise(r => setTimeout(r, 1000));
+  // HTML formatted announcement message
+  const message = TelegramMessages.announcement(senderName, title, body);
+
+  for (let i = 0; i < users.length; i += 25) {
+    await Promise.allSettled(users.slice(i, i + 25).map((u: any) =>
+      sendTelegramMessage(u.telegram_id, message)
+    ));
+    if (i + 25 < users.length) await new Promise(r => setTimeout(r, 1000));
   }
 }

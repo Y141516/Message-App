@@ -42,7 +42,7 @@ export default function LeaderDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [queueLoading, setQueueLoading] = useState(false);
   const [showLimitPicker, setShowLimitPicker] = useState(false);
-  const [customLimit, setCustomLimit] = useState('100');
+  const [customLimit, setCustomLimit] = useState('50');
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   const { t } = useTheme();
@@ -228,7 +228,7 @@ export default function LeaderDashboardClient() {
               >
                 <p className="text-[var(--text-secondary)] text-sm font-medium mb-3">Set message limit</p>
                 <div className="flex gap-2 mb-3 flex-wrap">
-                  {[50, 100, 150, 200].map(n => (
+                  {[20, 30, 40, 50].map(n => (
                     <button
                       key={n}
                       onClick={() => setCustomLimit(String(n))}

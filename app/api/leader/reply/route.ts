@@ -2,17 +2,16 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage } from '@/lib/telegram';
+import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
 
-// POST /api/leader/reply — submit a reply (text or audio)
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const telegram_id = formData.get('telegram_id') as string;
-    const message_id = formData.get('message_id') as string;
-    const reply_type = formData.get('reply_type') as string;
-    const content = formData.get('content') as string;
-    const audio_file = formData.get('audio') as File | null;
+    const message_id  = formData.get('message_id') as string;
+    const reply_type  = formData.get('reply_type') as string;
+    const content     = formData.get('content') as string;
+    const audio_file  = formData.get('audio') as File | null;
 
     if (!telegram_id || !message_id || !reply_type) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (!leader) return NextResponse.json({ error: 'Not a leader' }, { status: 403 });
 
-    // Get message + sender info for notification
+    // Get message + sender
     const { data: message } = await supabaseAdmin
       .from('messages')
       .select('id, sender_id, is_replied, users(telegram_id, name)')
@@ -40,36 +39,33 @@ export async function POST(req: NextRequest) {
 
     let audio_url: string | null = null;
 
-    // Upload audio if present
+    // Upload audio reply
     if (reply_type === 'audio' && audio_file && audio_file.size > 0) {
       const bytes = await audio_file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
       const ext = audio_file.name.split('.').pop() || 'webm';
       const fileName = `${leader.id}/${message_id}.${ext}`;
 
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      const { data: uploadData } = await supabaseAdmin.storage
         .from('reply-audio')
-        .upload(fileName, buffer, {
+        .upload(fileName, Buffer.from(bytes), {
           contentType: audio_file.type || 'audio/webm',
           upsert: true,
         });
 
-      if (!uploadError && uploadData) {
-        const { data: urlData } = supabaseAdmin.storage
-          .from('reply-audio')
-          .getPublicUrl(fileName);
+      if (uploadData) {
+        const { data: urlData } = supabaseAdmin.storage.from('reply-audio').getPublicUrl(fileName);
         audio_url = urlData.publicUrl;
       }
     }
 
     if (reply_type === 'text' && !content?.trim()) {
-      return NextResponse.json({ error: 'Reply content is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Reply content required' }, { status: 400 });
     }
     if (reply_type === 'audio' && !audio_url) {
       return NextResponse.json({ error: 'Audio upload failed' }, { status: 400 });
     }
 
-    // Insert reply
+    // Insert reply — this triggers Realtime on replies table
     const { data: reply, error: replyError } = await supabaseAdmin
       .from('replies')
       .insert({
@@ -84,27 +80,28 @@ export async function POST(req: NextRequest) {
 
     if (replyError) throw replyError;
 
-    // Notify user via Telegram bot
-    try {
-      const senderTelegramId = (message.users as any)?.telegram_id;
-      if (senderTelegramId) {
-        let notifText: string;
-        if (reply_type === 'audio') {
-          notifText = `🔔 *Reply Received!*\n\nYou have received an *audio reply* from ${leader.display_name} ji.\n\nOpen the app to listen. 🙏`;
-        } else {
-          const preview = (content || '').slice(0, 120);
-          const truncated = (content || '').length > 120 ? '...' : '';
-          notifText = `🔔 *Reply Received!*\n\nYou have received a reply from ${leader.display_name} ji:\n\n"${preview}${truncated}"\n\nOpen the app to view. 🙏`;
+    // Mark message as replied immediately — triggers Realtime on messages table
+    await supabaseAdmin
+      .from('messages')
+      .update({ is_replied: true })
+      .eq('id', message_id);
+
+    // Notify user via Telegram bot with HTML formatting
+    void (async () => {
+      try {
+        const senderTelegramId = (message.users as any)?.telegram_id;
+        if (senderTelegramId) {
+          const msg = reply_type === 'audio'
+            ? TelegramMessages.audioReplyReceived(leader.display_name)
+            : TelegramMessages.replyReceived(leader.display_name, content);
+          await sendTelegramMessage(senderTelegramId, msg);
         }
-        await sendTelegramMessage(senderTelegramId, notifText);
-      }
-    } catch {
-      // Notification failure is non-critical
-    }
+      } catch {}
+    })();
 
     return NextResponse.json({ success: true, reply });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Reply error:', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }
 }

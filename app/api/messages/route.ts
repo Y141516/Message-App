@@ -2,12 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage } from '@/lib/telegram';
+import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-
     const telegram_id  = formData.get('telegram_id') as string;
     const leader_id    = formData.get('leader_id') as string;
     const content      = formData.get('content') as string;
@@ -21,29 +20,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get user
     const { data: user } = await supabaseAdmin
       .from('users').select('id, name').eq('telegram_id', telegram_id).single();
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    // Regular message: check queue open + user hasn't sent in this queue
+    // Regular message: check queue
     if (!is_emergency) {
       const { data: queue } = await supabaseAdmin
-        .from('queues').select('id, is_open, message_limit, messages_received')
+        .from('queues')
+        .select('id, is_open, message_limit, messages_received')
         .eq('leader_id', leader_id).eq('is_open', true).single();
 
       if (!queue) return NextResponse.json({ error: 'Queue is closed' }, { status: 400 });
       if (queue.messages_received >= queue.message_limit)
         return NextResponse.json({ error: 'Queue limit reached' }, { status: 400 });
 
-      const { data: existingMsg } = await supabaseAdmin
+      const { data: existing } = await supabaseAdmin
         .from('messages').select('id')
         .eq('sender_id', user.id).eq('queue_id', queue.id).single();
-      if (existingMsg)
+      if (existing)
         return NextResponse.json({ error: 'already_sent', message: 'You already sent a message in this queue.' }, { status: 400 });
     }
 
-    // Get queue_id for regular messages
+    // Get queue_id
     let queue_id: string | null = null;
     if (!is_emergency) {
       const { data: q } = await supabaseAdmin
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
       queue_id = q?.id || null;
     }
 
-    // Upload main media attachment
+    // Upload media
     let media_url: string | null = null;
     if (media_file && media_file.size > 0) {
       const bytes = await media_file.arrayBuffer();
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Upload user voice note
+    // Upload voice note
     let user_voice_url: string | null = null;
     if (voice_file && voice_file.size > 0) {
       const bytes = await voice_file.arrayBuffer();
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Insert message — triggers Supabase Realtime instantly on leader's screen
+    // Insert message — triggers Realtime instantly on leader's screen
     const { data: message, error: msgError } = await supabaseAdmin
       .from('messages')
       .insert({
@@ -90,7 +89,7 @@ export async function POST(req: NextRequest) {
         message_type,
         media_url,
         media_type: media_type || null,
-        user_voice_url,   // correct column name matching DB schema
+        user_voice_url,
         is_emergency,
         is_replied: false,
       })
@@ -99,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     if (msgError) throw msgError;
 
-    // Notify leader of emergency (fire and forget)
+    // Notify leader of emergency with HTML formatting
     if (is_emergency) {
       void (async () => {
         try {
@@ -107,20 +106,25 @@ export async function POST(req: NextRequest) {
             .from('leaders').select('display_name, users(telegram_id)').eq('id', leader_id).single();
           if (leaderData?.users) {
             const labels: Record<string, string> = {
-              emergency_medical:   '🏥 MEDICAL EMERGENCY',
-              emergency_transport: '🚗 TRANSPORT EMERGENCY',
-              emergency_urgent:    '🚨 URGENT EMERGENCY',
+              emergency_medical:   '🏥 <b>MEDICAL EMERGENCY</b>',
+              emergency_transport: '🚗 <b>TRANSPORT EMERGENCY</b>',
+              emergency_urgent:    '🚨 <b>URGENT EMERGENCY</b>',
             };
             await sendTelegramMessage(
               (leaderData.users as any).telegram_id,
-              `${labels[message_type] || '🚨 EMERGENCY'}\n\nFrom: ${user.name}\n${content ? `"${content.slice(0, 150)}"` : ''}\n${user_voice_url ? '🎤 Voice note attached' : ''}\n\nOpen the app to reply immediately.`
+              TelegramMessages.emergencyReceived(
+                labels[message_type] || '🚨 <b>EMERGENCY</b>',
+                user.name,
+                content,
+                !!user_voice_url
+              )
             );
           }
         } catch {}
       })();
     }
 
-    // Check if queue auto-closed after this message
+    // Check queue auto-close
     if (queue_id) {
       void (async () => {
         try {
@@ -134,12 +138,12 @@ export async function POST(req: NextRequest) {
             const leaderName = (uq.leaders as any)?.display_name;
             if (leaderTgId) {
               await sendTelegramMessage(leaderTgId,
-                `✅ *Queue Auto-Closed*\n\nYour queue reached the limit of *${uq.message_limit}* messages.\n\nTotal received: ${uq.messages_received}\n\nOpen the app to start replying. 🙏`);
+                TelegramMessages.queueAutoClose(uq.message_limit, uq.messages_received));
             }
             const { data: allUsers } = await supabaseAdmin
               .from('users').select('telegram_id').eq('role', 'user').eq('is_active', true);
             if (allUsers?.length && leaderName) {
-              const msg = `🔴 *Queue Closed*\n\n${leaderName} ji's queue is now full.\n\nYou will receive a reply soon. 🙏`;
+              const msg = TelegramMessages.userNotInQueue(leaderName);
               for (let i = 0; i < allUsers.length; i += 25) {
                 void Promise.allSettled(allUsers.slice(i, i + 25).map((u: any) => sendTelegramMessage(u.telegram_id, msg)));
                 if (i + 25 < allUsers.length) await new Promise(r => setTimeout(r, 1000));
@@ -151,8 +155,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message });
-  } catch (error: any) {
-    console.error('Send message error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to send message' }, { status: 500 });
+  } catch (err: any) {
+    console.error('Send message error:', err);
+    return NextResponse.json({ error: err.message || 'Failed to send message' }, { status: 500 });
   }
 }

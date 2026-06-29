@@ -15,6 +15,7 @@ import { usePolling } from '@/hooks/usePolling';
 import { useRealtimeReplies, useRealtimeMessages } from '@/hooks/useRealtimeQueue';
 import { Message } from '@/types';
 import { cn, formatRelativeTime, getMessageTypeLabel, getEmergencyColor } from '@/lib/utils';
+import { downloadReplyAsPDF } from '@/lib/generatePDF';
 import toast from 'react-hot-toast';
 
 type Tab = 'current' | 'history';
@@ -80,28 +81,20 @@ export default function DashboardClient() {
     toast.success(t('dashboard.download_audio'));
   };
 
-  const downloadPDF = (content: string, leaderName: string, msgContent: string) => {
-    // Build HTML and open via data URL — works in Telegram WebApp
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>body{font-family:Arial;max-width:600px;margin:40px auto;color:#333}
-    h2{color:#F5A623;border-bottom:2px solid #F5A623;padding-bottom:8px}
-    .label{font-size:11px;color:#999;text-transform:uppercase;margin:16px 0 6px}
-    .msg{background:#f5f5f5;padding:16px;border-radius:8px;line-height:1.6}
-    .reply{background:#FFF8EE;border-left:4px solid #F5A623;padding:16px;border-radius:0 8px 8px 0;line-height:1.6}
-    </style></head><body>
-    <h2>Reply from ${leaderName}</h2>
-    <div class="label">Your Message</div>
-    <div class="msg">${msgContent || '(No text content)'}</div>
-    <div class="label">Reply from ${leaderName}</div>
-    <div class="reply">${content}</div>
-    </body></html>`;
-
-    // Use proxy API to serve as downloadable file
-    const encoded = encodeURIComponent(html);
-    // For text content, open in new tab (user can save from browser)
-    const dataUrl = `data:text/html;charset=utf-8,${encoded}`;
-    window.open(dataUrl, '_blank');
-    toast.success(t('dashboard.download_pdf'));
+  const downloadPDF = async (
+    replyContent: string,
+    leaderName: string,
+    msgContent: string,
+    messageDate: string,
+    replyDate: string
+  ) => {
+    try {
+      await downloadReplyAsPDF(replyContent, leaderName, msgContent, messageDate, replyDate);
+      toast.success(t('dashboard.download_pdf'));
+    } catch (err) {
+      console.error('PDF error:', err);
+      toast.error('Could not generate PDF');
+    }
   };
 
   // Tab button style
@@ -271,7 +264,7 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
   message: Message; index: number; playingAudio: string | null; isLight: boolean;
   setPlayingAudio: (id: string | null) => void;
   onDownloadAudio: (url: string, id: string) => void;
-  onDownloadPDF: (content: string, leaderName: string, msgContent: string) => void;
+  onDownloadPDF: (content: string, leaderName: string, msgContent: string, msgDate: string, replyDate: string) => void;
   t: (k: string) => string;
 }) {
   const leader = (message as any).leaders;
