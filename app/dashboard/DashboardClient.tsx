@@ -326,7 +326,7 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
                 style={{ background: isLight ? '#FFFFFF' : 'var(--bg-secondary)', border: `1px solid ${isLight ? '#E8E8F0' : 'var(--border-subtle)'}` }}>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{reply.content}</p>
               </div>
-              <button onClick={() => onDownloadPDF(reply.content!, leader?.display_name, message.content || '')}
+              <button onClick={() => onDownloadPDF(reply.content!, leader?.display_name, message.content || '', formatRelativeTime(message.created_at), formatRelativeTime(reply.created_at))}
                 className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 <Download className="w-3.5 h-3.5" /> {t('dashboard.download_pdf')}
               </button>
