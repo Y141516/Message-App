@@ -38,7 +38,21 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create_group') {
       const { data, error } = await supabaseAdmin
-        .from('groups').insert({ name: payload.name, description: payload.description || null })
+        .from('groups').insert({
+          name: payload.name,
+          description: payload.description || null,
+          always_open: !!payload.always_open,
+        })
+        .select().single();
+      if (error) throw error;
+      return NextResponse.json({ success: true, group: data });
+    }
+
+    if (action === 'toggle_always_open') {
+      const { data, error } = await supabaseAdmin
+        .from('groups')
+        .update({ always_open: !!payload.always_open })
+        .eq('id', payload.group_id)
         .select().single();
       if (error) throw error;
       return NextResponse.json({ success: true, group: data });

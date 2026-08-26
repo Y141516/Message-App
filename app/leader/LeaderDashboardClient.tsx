@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { usePolling } from '@/hooks/usePolling';
+import { useRealtimeLeaderQueue } from '@/hooks/useRealtimeQueue';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
 import { cn } from '@/lib/utils';
@@ -59,7 +60,13 @@ export default function LeaderDashboardClient() {
     setLoading(false);
   };
 
-  usePolling(fetchAll, [user?.telegram_id], { interval: 10000, enabled: !!user });
+  // BUG FIX: this screen previously had NO realtime subscription at all —
+  // only 10s polling, twice as slow as every other screen, and with no
+  // instant updates when a message arrives or the queue count changes.
+  // 3s polling fallback + realtime for instant updates, matching the rest
+  // of the app.
+  usePolling(fetchAll, [user?.telegram_id], { interval: 3000, enabled: !!user });
+  useRealtimeLeaderQueue(fetchAll, !!user);
 
   const fetchQueue = async () => {
     try {

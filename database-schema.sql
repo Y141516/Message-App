@@ -14,6 +14,7 @@ CREATE TABLE groups (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL UNIQUE,
   description TEXT,
+  always_open BOOLEAN NOT NULL DEFAULT FALSE,  -- members can send even when the leader's queue is closed
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

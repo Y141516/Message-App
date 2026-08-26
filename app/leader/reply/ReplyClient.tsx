@@ -229,10 +229,21 @@ export default function ReplyClient() {
               <span className="text-[var(--text-secondary)] text-xs">View {message.media_type} attachment</span>
             </a>
           )}
-          {!message.content && !message.media_url && (
+          {!message.content && !message.media_url && !message.user_voice_url && (
             <p className="text-[var(--text-muted)] text-sm italic">(No text content)</p>
           )}
         </motion.div>
+
+        {/* User's mandatory voice note */}
+        {message.user_voice_url && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+            className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl p-4">
+            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Mic className="w-3 h-3" /> Voice Note
+            </p>
+            <UserVoicePlayer url={message.user_voice_url} />
+          </motion.div>
+        )}
 
         {/* Already replied notice */}
         {alreadyReplied && message.replies?.[0] && (

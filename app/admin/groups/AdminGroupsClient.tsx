@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Map, Users, ChevronDown, X } from 'lucide-react';
+import { Plus, Trash2, Map, Users, ChevronDown, X, Zap } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/layout/PageHeader';
 import { useUserStore } from '@/store/userStore';
@@ -20,6 +20,7 @@ export default function AdminGroupsClient() {
   const [showAddMapping, setShowAddMapping] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupAlwaysOpen, setNewGroupAlwaysOpen] = useState(false);
   const [newTgId, setNewTgId] = useState('');
   const [newTgName, setNewTgName] = useState('');
   const [newInternalGroup, setNewInternalGroup] = useState('');
@@ -47,12 +48,12 @@ export default function AdminGroupsClient() {
       const res = await fetch('/api/admin/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegram_id: user!.telegram_id, action: 'create_group', name: newGroupName.trim(), description: newGroupDesc.trim() }),
+        body: JSON.stringify({ telegram_id: user!.telegram_id, action: 'create_group', name: newGroupName.trim(), description: newGroupDesc.trim(), always_open: newGroupAlwaysOpen }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success('Group created!');
-      setNewGroupName(''); setNewGroupDesc(''); setShowAddGroup(false);
+      setNewGroupName(''); setNewGroupDesc(''); setNewGroupAlwaysOpen(false); setShowAddGroup(false);
       fetchGroups();
     } catch (err: any) { toast.error(err.message); }
     finally { setSaving(false); }
@@ -92,6 +93,24 @@ export default function AdminGroupsClient() {
     } catch { toast.error('Delete failed'); }
   };
 
+  const toggleAlwaysOpen = async (group: any) => {
+    // Optimistic update so the toggle feels instant
+    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, always_open: !g.always_open } : g));
+    try {
+      const res = await fetch('/api/admin/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegram_id: user!.telegram_id, action: 'toggle_always_open', group_id: group.id, always_open: !group.always_open }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success(!group.always_open ? `${group.name} can now send anytime` : `${group.name} follows normal queue rules again`);
+    } catch {
+      // Revert on failure
+      setGroups(prev => prev.map(g => g.id === group.id ? { ...g, always_open: group.always_open } : g));
+      toast.error('Could not update group');
+    }
+  };
+
   return (
     <AppShell showNav={false}>
       <PageHeader title="Manage Groups" showBack />
@@ -122,6 +141,17 @@ export default function AdminGroupsClient() {
                   placeholder="Description (optional)"
                   className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                   style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+                <button onClick={() => setNewGroupAlwaysOpen(v => !v)}
+                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: newGroupAlwaysOpen ? 'rgba(250,204,21,0.1)' : 'var(--bg-secondary)', border: `1px solid ${newGroupAlwaysOpen ? 'rgba(250,204,21,0.4)' : 'var(--border-subtle)'}` }}>
+                  <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${newGroupAlwaysOpen ? 'bg-yellow-400 border-yellow-400' : 'border-gray-500'}`}>
+                    {newGroupAlwaysOpen && <Zap className="w-2.5 h-2.5 text-black" fill="black" />}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Always Open</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Members can send a message anytime, even when the leader's queue is closed</p>
+                  </div>
+                </button>
                 <div className="flex gap-2">
                   <button onClick={() => setShowAddGroup(false)} className="flex-1 py-2.5 rounded-xl text-sm"
                     style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>Cancel</button>
@@ -145,11 +175,28 @@ export default function AdminGroupsClient() {
                     <Users className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{g.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{g.name}</p>
+                      {g.always_open && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(250,204,21,0.15)', color: '#EAB308' }}>
+                          <Zap className="w-2 h-2" fill="#EAB308" /> ALWAYS OPEN
+                        </span>
+                      )}
+                    </div>
                     {g.description && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{g.description}</p>}
                   </div>
+                  <button onClick={() => toggleAlwaysOpen(g)}
+                    title={g.always_open ? 'Disable always-open' : 'Enable always-open'}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
+                    style={{
+                      background: g.always_open ? 'rgba(250,204,21,0.12)' : 'var(--bg-elevated)',
+                      color: g.always_open ? '#EAB308' : 'var(--text-muted)',
+                    }}>
+                    <Zap className="w-3.5 h-3.5" fill={g.always_open ? '#EAB308' : 'none'} />
+                  </button>
                   <button onClick={() => deleteItem('delete_group', g.id)}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

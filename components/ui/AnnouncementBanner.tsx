@@ -1,9 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Megaphone, X } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePolling } from '@/hooks/usePolling';
+import { useRealtimeAnnouncements } from '@/hooks/useRealtimeQueue';
 import { formatRelativeTime } from '@/lib/utils';
 
 interface Announcement {
@@ -20,11 +22,6 @@ export default function AnnouncementBanner() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [current, setCurrent] = useState(0);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchAnnouncements();
-  }, [user]);
-
   const fetchAnnouncements = async () => {
     try {
       const res = await fetch(`/api/announcements?telegram_id=${user!.telegram_id}`);
@@ -32,6 +29,13 @@ export default function AnnouncementBanner() {
       setAnnouncements(data.announcements || []);
     } catch {}
   };
+
+  // BUG FIX: this previously fetched once on mount and never again — a new
+  // announcement never appeared to anyone already in the app until they
+  // fully reloaded it. Add realtime + a 10s polling fallback (announcements
+  // are low-frequency, no need to poll as aggressively as messages).
+  usePolling(fetchAnnouncements, [user?.telegram_id], { interval: 10000, enabled: !!user });
+  useRealtimeAnnouncements(fetchAnnouncements, !!user);
 
   const dismiss = async (id: string) => {
     setAnnouncements(prev => prev.filter(a => a.id !== id));

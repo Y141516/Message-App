@@ -24,27 +24,51 @@ export async function POST(req: NextRequest) {
       .from('users').select('id, name').eq('telegram_id', telegram_id).single();
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
+    // Does this sender belong to a group that's allowed to send anytime,
+    // even when the leader's queue is currently closed? (e.g. "Foreigners")
+    let isAlwaysOpenMember = false;
+    if (!is_emergency) {
+      const { data: memberGroups } = await supabaseAdmin
+        .from('user_groups')
+        .select('groups(always_open)')
+        .eq('user_id', user.id);
+      isAlwaysOpenMember = (memberGroups || []).some((ug: any) => ug.groups?.always_open === true);
+    }
+
     // Regular message: check queue
+    let bypassedClosedQueue = false;
     if (!is_emergency) {
       const { data: queue } = await supabaseAdmin
         .from('queues')
         .select('id, is_open, message_limit, messages_received')
         .eq('leader_id', leader_id).eq('is_open', true).single();
 
-      if (!queue) return NextResponse.json({ error: 'Queue is closed' }, { status: 400 });
-      if (queue.messages_received >= queue.message_limit)
-        return NextResponse.json({ error: 'Queue limit reached' }, { status: 400 });
+      if (!queue) {
+        // No open queue right now. Always-open group members (e.g.
+        // Foreigners) can still send — everyone else is blocked as before.
+        if (!isAlwaysOpenMember) {
+          return NextResponse.json({ error: 'Queue is closed' }, { status: 400 });
+        }
+        bypassedClosedQueue = true;
+      } else {
+        if (queue.messages_received >= queue.message_limit)
+          return NextResponse.json({ error: 'Queue limit reached' }, { status: 400 });
 
-      const { data: existing } = await supabaseAdmin
-        .from('messages').select('id')
-        .eq('sender_id', user.id).eq('queue_id', queue.id).single();
-      if (existing)
-        return NextResponse.json({ error: 'already_sent', message: 'You already sent a message in this queue.' }, { status: 400 });
+        // While a queue IS actively open, everyone — including always-open
+        // group members — is still limited to one message per session. This
+        // keeps things fair during a live queue; the always-open exemption
+        // only kicks in once the queue has closed.
+        const { data: existing } = await supabaseAdmin
+          .from('messages').select('id')
+          .eq('sender_id', user.id).eq('queue_id', queue.id).single();
+        if (existing)
+          return NextResponse.json({ error: 'already_sent', message: 'You already sent a message in this queue.' }, { status: 400 });
+      }
     }
 
     // Get queue_id
     let queue_id: string | null = null;
-    if (!is_emergency) {
+    if (!is_emergency && !bypassedClosedQueue) {
       const { data: q } = await supabaseAdmin
         .from('queues').select('id').eq('leader_id', leader_id).eq('is_open', true).single();
       queue_id = q?.id || null;

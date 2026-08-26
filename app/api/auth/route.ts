@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     // Check if user exists in DB
     const { data: existingUser } = await supabaseAdmin
       .from('users')
-      .select(`*, user_groups(group_id, groups(id, name))`)
+      .select(`*, user_groups(group_id, groups(id, name, always_open))`)
       .eq('telegram_id', telegramId)
       .single();
 

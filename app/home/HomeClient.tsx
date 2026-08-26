@@ -39,9 +39,11 @@ export default function HomeClient() {
   usePolling(fetchQueues, [user?.telegram_id], { interval: 3000, enabled: !!user });
 
   const hasOpenQueue = openQueues.length > 0;
+  const isAlwaysOpenMember = user?.groups?.some(g => (g as any).always_open) ?? false;
+  const canSendMessage = hasOpenQueue || isAlwaysOpenMember;
 
   const handleSendMessage = () => {
-    if (!hasOpenQueue) {
+    if (!canSendMessage) {
       toast(t('home.queue_closed_btn'), { icon: '🔒',
         style: { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)' } });
       return;
@@ -113,27 +115,27 @@ export default function HomeClient() {
           <button onClick={handleSendMessage}
             className="w-full rounded-2xl p-4 flex items-center gap-4 transition-all active:scale-[0.98]"
             style={{
-              background: hasOpenQueue ? 'var(--send-btn-bg)' : 'var(--bg-card)',
-              border: hasOpenQueue ? 'none' : '1px solid var(--border-subtle)',
-              boxShadow: hasOpenQueue ? '0 4px 20px rgba(245,166,35,0.4)' : 'none',
-              opacity: hasOpenQueue ? 1 : 0.6,
-              cursor: hasOpenQueue ? 'pointer' : 'not-allowed',
+              background: canSendMessage ? 'var(--send-btn-bg)' : 'var(--bg-card)',
+              border: canSendMessage ? 'none' : '1px solid var(--border-subtle)',
+              boxShadow: canSendMessage ? '0 4px 20px rgba(245,166,35,0.4)' : 'none',
+              opacity: canSendMessage ? 1 : 0.6,
+              cursor: canSendMessage ? 'pointer' : 'not-allowed',
             }}>
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: hasOpenQueue ? 'rgba(255,255,255,0.2)' : 'var(--bg-elevated)' }}>
-              {hasOpenQueue
+              style={{ background: canSendMessage ? 'rgba(255,255,255,0.2)' : 'var(--bg-elevated)' }}>
+              {canSendMessage
                 ? <MessageSquarePlus className="w-5 h-5 text-white" />
                 : <Lock className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />}
             </div>
             <div className="flex-1 text-left">
-              <p className="font-bold text-base" style={{ color: hasOpenQueue ? 'white' : 'var(--text-muted)' }}>
+              <p className="font-bold text-base" style={{ color: canSendMessage ? 'white' : 'var(--text-muted)' }}>
                 {t('home.send_message')}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: hasOpenQueue ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
-                {hasOpenQueue ? t('home.send_message_sub') : t('home.queue_closed_btn')}
+              <p className="text-xs mt-0.5" style={{ color: canSendMessage ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+                {hasOpenQueue ? t('home.send_message_sub') : isAlwaysOpenMember ? 'You can send anytime' : t('home.queue_closed_btn')}
               </p>
             </div>
-            {hasOpenQueue && <ChevronRight className="w-5 h-5 text-white flex-shrink-0" />}
+            {canSendMessage && <ChevronRight className="w-5 h-5 text-white flex-shrink-0" />}
           </button>
         </motion.div>
 

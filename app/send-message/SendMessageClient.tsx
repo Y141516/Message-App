@@ -31,6 +31,9 @@ export default function SendMessageClient() {
   const searchParams = useSearchParams();
   const emergencyParam = searchParams.get('emergency') as EmergencyType;
   const { user, openQueues } = useUserStore();
+  // Members of an "always open" group (e.g. Foreigners) can send a message
+  // even when every leader's queue is currently closed.
+  const isAlwaysOpenMember = user?.groups?.some(g => (g as any).always_open) ?? false;
   const { t, isLight } = useTheme();
 
   const [leaders, setLeaders] = useState<Leader[]>([]);
@@ -46,6 +49,7 @@ export default function SendMessageClient() {
   // Voice note (mandatory)
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
+  const [voiceSource, setVoiceSource] = useState<'record' | 'upload' | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
@@ -54,6 +58,7 @@ export default function SendMessageClient() {
   const [sent, setSent] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const voiceFileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -111,6 +116,7 @@ export default function SendMessageClient() {
         setVoiceBlob(blob);
         const f = new (window.File || Blob)([blob], 'voice.webm', { type: 'audio/webm' }) as File;
         setVoiceFile(f);
+        setVoiceSource('record');
         if (previewAudioRef.current) {
           previewAudioRef.current.src = URL.createObjectURL(blob);
         } else {
@@ -125,6 +131,7 @@ export default function SendMessageClient() {
       setRecordingTime(0);
       setVoiceBlob(null);
       setVoiceFile(null);
+      setVoiceSource(null);
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(t => {
           if (t + 1 >= MAX_VOICE_SECONDS) {
@@ -141,6 +148,46 @@ export default function SendMessageClient() {
     mediaRecorderRef.current?.stop();
     setIsRecording(false);
     if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+  };
+
+  // ─── Voice file upload (alternative to recording) ─────────
+  const ALLOWED_AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'aac', 'webm', 'opus'];
+  const MAX_VOICE_FILE_MB = 20;
+
+  const handleVoiceFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const isAudioType = file.type.startsWith('audio/');
+    if (!isAudioType && !ALLOWED_AUDIO_EXT.includes(ext)) {
+      toast.error('Please choose an audio file (.mp3, .m4a, .wav, .ogg, .aac)');
+      if (voiceFileInputRef.current) voiceFileInputRef.current.value = '';
+      return;
+    }
+    if (file.size > MAX_VOICE_FILE_MB * 1024 * 1024) {
+      toast.error(`Audio file too large. Max ${MAX_VOICE_FILE_MB}MB.`);
+      if (voiceFileInputRef.current) voiceFileInputRef.current.value = '';
+      return;
+    }
+
+    setVoiceBlob(file);
+    setVoiceFile(file);
+    setVoiceSource('upload');
+    if (previewAudioRef.current) {
+      previewAudioRef.current.src = URL.createObjectURL(file);
+    } else {
+      previewAudioRef.current = new Audio(URL.createObjectURL(file));
+      previewAudioRef.current.onended = () => setIsPlayingPreview(false);
+    }
+  };
+
+  const removeVoice = () => {
+    setVoiceBlob(null);
+    setVoiceFile(null);
+    setVoiceSource(null);
+    setIsPlayingPreview(false);
+    if (voiceFileInputRef.current) voiceFileInputRef.current.value = '';
   };
 
   const togglePreview = () => {
@@ -172,14 +219,21 @@ export default function SendMessageClient() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === 'already_sent') toast.error('You already sent a message in this queue.');
-        else toast.error(data.message || 'Failed to send');
+        // BUG FIX: the API returns the failure reason under `data.error`
+        // (e.g. "Queue is closed", "Queue limit reached"), not `data.message` —
+        // this was showing a generic "Failed to send" for every real error,
+        // hiding the actual reason from the user.
+        if (data.error === 'already_sent') toast.error(data.message || 'You already sent a message in this queue.');
+        else toast.error(data.error || data.message || 'Failed to send');
         return;
       }
 
       setSent(true);
       setTimeout(() => router.replace('/home'), 2200);
-    } catch { toast.error('Something went wrong. Please try again.'); }
+    } catch (err) {
+      console.error('Send message error:', err);
+      toast.error('Something went wrong. Please check your connection and try again.');
+    }
     finally { setSending(false); }
   };
 
@@ -241,7 +295,7 @@ export default function SendMessageClient() {
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{selectedLeader.display_name}</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {isEmergency ? 'Emergency message' : openQueues.find(q => q.leader_id === selectedLeader.id) ? 'Queue open' : 'Emergency only'}
+                    {isEmergency ? 'Emergency message' : openQueues.find(q => q.leader_id === selectedLeader.id) ? 'Queue open' : isAlwaysOpenMember ? 'You can send anytime' : 'Emergency only'}
                   </p>
                 </div>
               </>
@@ -260,7 +314,7 @@ export default function SendMessageClient() {
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)', transformOrigin: 'top' }}>
                 {leaders.map((leader, i) => {
                   const hasOpenQueue = openQueues.some(q => q.leader_id === leader.id);
-                  const canSelect = isEmergency || hasOpenQueue;
+                  const canSelect = isEmergency || hasOpenQueue || isAlwaysOpenMember;
                   return (
                     <button key={leader.id} disabled={!canSelect}
                       onClick={() => { setSelectedLeader(leader); setShowLeaderPicker(false); }}
@@ -273,7 +327,7 @@ export default function SendMessageClient() {
                       <div className="flex-1">
                         <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{leader.display_name}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {isEmergency ? 'Emergency' : hasOpenQueue ? '✓ Queue open' : 'Queue closed'}
+                          {isEmergency ? 'Emergency' : hasOpenQueue ? '✓ Queue open' : isAlwaysOpenMember ? '✓ You can send anytime' : 'Queue closed'}
                         </p>
                       </div>
                       {selectedLeader?.id === leader.id && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--accent)' }} />}
@@ -325,12 +379,16 @@ export default function SendMessageClient() {
                   {isPlayingPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </button>
                 <div className="flex-1">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Voice note recorded</p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{fmt(recordingTime)} • Tap play to preview</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {voiceSource === 'upload' ? (voiceFile?.name || 'Audio file attached') : 'Voice note recorded'}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {voiceSource === 'record' ? `${fmt(recordingTime)} • ` : ''}Tap play to preview
+                  </p>
                 </div>
-                <button onClick={() => { setVoiceBlob(null); setVoiceFile(null); setIsPlayingPreview(false); }}
+                <button onClick={removeVoice}
                   className="text-xs px-2 py-1 rounded-lg" style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}>
-                  Re-record
+                  {voiceSource === 'upload' ? 'Remove' : 'Re-record'}
                 </button>
               </div>
             </div>
@@ -363,9 +421,29 @@ export default function SendMessageClient() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Tap to Record Voice Note</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Max 1 minute · Required before sending</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Max 1 minute{!isEmergency ? ' · Required before sending' : ''}</p>
               </div>
             </button>
+          )}
+
+          {/* Alternative: attach an existing audio file instead of recording */}
+          {!voiceBlob && !isRecording && (
+            <>
+              <div className="flex items-center gap-2 my-2.5">
+                <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>or</span>
+                <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+              </div>
+              <input ref={voiceFileInputRef} type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac"
+                onChange={handleVoiceFileSelect} className="hidden" />
+              <button onClick={() => voiceFileInputRef.current?.click()}
+                className="w-full rounded-2xl py-3.5 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <FileAudio className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Upload Audio File</span>
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>.mp3, .m4a, .wav...</span>
+              </button>
+            </>
           )}
         </motion.div>
 

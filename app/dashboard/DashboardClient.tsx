@@ -15,7 +15,6 @@ import { usePolling } from '@/hooks/usePolling';
 import { useRealtimeReplies, useRealtimeMessages } from '@/hooks/useRealtimeQueue';
 import { Message } from '@/types';
 import { cn, formatRelativeTime, getMessageTypeLabel, getEmergencyColor } from '@/lib/utils';
-import { downloadReplyAsPDF } from '@/lib/generatePDF';
 import toast from 'react-hot-toast';
 
 type Tab = 'current' | 'history';
@@ -75,26 +74,24 @@ export default function DashboardClient() {
   const activeFilterCount = [filterLeader !== 'all', filterSort !== 'newest', filterType !== 'all'].filter(Boolean).length;
 
   const downloadAudio = (audioUrl: string, messageId: string) => {
-    // Use window.open — the only reliable download method in Telegram WebApp
-    const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}&filename=reply-${messageId}.mp3`;
+    // Detect the real file extension from the URL instead of hardcoding .mp3 —
+    // recordings are stored as .webm, so a wrong extension breaks playback for
+    // apps that check the file extension.
+    const ext = audioUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'webm';
+    const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}&filename=${encodeURIComponent(`reply-${messageId}.${ext}`)}`;
+    // window.open is the only reliable download trigger inside Telegram's WebApp sandbox
     window.open(proxyUrl, '_blank');
     toast.success(t('dashboard.download_audio'));
   };
 
-  const downloadPDF = async (
-    replyContent: string,
-    leaderName: string,
-    msgContent: string,
-    messageDate: string,
-    replyDate: string
-  ) => {
-    try {
-      await downloadReplyAsPDF(replyContent, leaderName, msgContent, messageDate, replyDate);
-      toast.success(t('dashboard.download_pdf'));
-    } catch (err) {
-      console.error('PDF error:', err);
-      toast.error('Could not generate PDF');
-    }
+  const downloadPDF = (messageId: string) => {
+    // Server-generates a real PDF (pdf-lib) and streams it back with
+    // Content-Disposition: attachment — the same proven window.open(url) pattern
+    // used for audio/resource downloads. The old client-side jsPDF + data-URI
+    // approach silently failed inside Telegram's WebView sandbox.
+    const proxyUrl = `/api/generate-pdf?message_id=${encodeURIComponent(messageId)}&telegram_id=${encodeURIComponent(user!.telegram_id)}`;
+    window.open(proxyUrl, '_blank');
+    toast.success(t('dashboard.download_pdf'));
   };
 
   // Tab button style
@@ -264,7 +261,7 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
   message: Message; index: number; playingAudio: string | null; isLight: boolean;
   setPlayingAudio: (id: string | null) => void;
   onDownloadAudio: (url: string, id: string) => void;
-  onDownloadPDF: (content: string, leaderName: string, msgContent: string, msgDate: string, replyDate: string) => void;
+  onDownloadPDF: (messageId: string) => void;
   t: (k: string) => string;
 }) {
   const leader = (message as any).leaders;
@@ -326,7 +323,7 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
                 style={{ background: isLight ? '#FFFFFF' : 'var(--bg-secondary)', border: `1px solid ${isLight ? '#E8E8F0' : 'var(--border-subtle)'}` }}>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{reply.content}</p>
               </div>
-              <button onClick={() => onDownloadPDF(reply.content!, leader?.display_name, message.content || '', formatRelativeTime(message.created_at), formatRelativeTime(reply.created_at))}
+              <button onClick={() => onDownloadPDF(message.id)}
                 className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 <Download className="w-3.5 h-3.5" /> {t('dashboard.download_pdf')}
               </button>

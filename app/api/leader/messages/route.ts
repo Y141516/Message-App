@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       .from('messages')
       .select(`
         id, content, message_type, media_url, media_type,
+        user_voice_url,
         is_emergency, is_replied, created_at,
         users!inner(id, name, city,
           user_groups(groups(id, name))

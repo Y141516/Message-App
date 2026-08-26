@@ -251,6 +251,12 @@ function MessageCard({ message, index, onClick, showReply }: {
             </span>
           )}
           <span className="text-[var(--text-muted)] text-[10px]">{formatRelativeTime(message.created_at)}</span>
+          {message.user_voice_url && (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)' }}>
+              <Mic className="w-2.5 h-2.5" /> Voice
+            </span>
+          )}
         </div>
       </div>
 

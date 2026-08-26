@@ -7,6 +7,7 @@ export interface Group {
   id: string;
   name: string;
   description?: string;
+  always_open?: boolean;
 }
 
 export interface User {
@@ -50,6 +51,7 @@ export interface Message {
   message_type: MessageType;
   media_url?: string;
   media_type?: MediaType;
+  user_voice_url?: string;
   is_emergency: boolean;
   is_replied: boolean;
   created_at: string;

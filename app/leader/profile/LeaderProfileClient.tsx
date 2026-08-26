@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Hash, Phone, MapPin, Moon, Sun,
-  LogOut, CheckCircle2, Shield, Languages,
+  User, Hash, Phone, Moon, Sun,
+  LogOut, Shield, Languages,
   Trash2, AlertTriangle,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
@@ -35,9 +35,18 @@ export default function LeaderProfileClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success('Data cleared successfully');
-      logout();
-      router.replace('/');
+
+      if (data.accountDeleted) {
+        // Account gone — next auth will treat this as a brand new user.
+        toast.success('Account fully reset');
+        logout();
+        router.replace('/');
+      } else {
+        // Data cleared but the account is still valid (leader full reset, or
+        // messages_only for anyone) — no need to force a logout.
+        toast.success(data.note || 'Data cleared successfully');
+        router.refresh();
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to clear data');
     } finally {
@@ -50,7 +59,6 @@ export default function LeaderProfileClient() {
     { label: 'NAME',        value: user?.name || '—',            icon: <User className="w-4 h-4" />,  iconBg: isLight ? '#EEF0FD' : 'var(--bg-elevated)', iconColor: '#5B6EF5' },
     { label: 'TELEGRAM ID', value: user?.telegram_id || '—',     icon: <Hash className="w-4 h-4" />,  iconBg: isLight ? '#F3EEFF' : 'var(--bg-elevated)', iconColor: '#9B5DE5' },
     { label: 'PHONE',       value: user?.phone || 'Not provided', icon: <Phone className="w-4 h-4" />, iconBg: isLight ? '#FFF0F3' : 'var(--bg-elevated)', iconColor: '#E84393', muted: !user?.phone },
-    { label: 'CITY',        value: user?.city || '—',             icon: <MapPin className="w-4 h-4" />,iconBg: isLight ? '#E8F8FF' : 'var(--bg-elevated)', iconColor: '#2196F3' },
   ];
 
   return (
@@ -101,27 +109,6 @@ export default function LeaderProfileClient() {
             ))}
           </div>
         </motion.div>
-
-        {/* Groups */}
-        {user?.groups && user.groups.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="rounded-2xl p-5"
-            style={{ background: 'var(--group-card-bg)', border: '1px solid var(--group-card-border)' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-3"
-              style={{ color: isLight ? '#007A5E' : 'var(--text-muted)' }}>GROUPS</p>
-            {user.groups.map(g => (
-              <div key={g.id} className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center"
-                  style={{ background: '#00C48C' }}>
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-semibold flex-1" style={{ color: 'var(--text-primary)' }}>{g.name}</span>
-                <span className="text-xs font-semibold px-3 py-1 rounded-full text-white"
-                  style={{ background: '#00C48C' }}>Verified</span>
-              </div>
-            ))}
-          </motion.div>
-        )}
 
         {/* Settings */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -196,8 +183,8 @@ export default function LeaderProfileClient() {
                 </p>
                 <div className="space-y-2 mb-4">
                   {[
-                    { id: 'messages_only', label: 'Clear messages & files only', sub: 'Keeps your name, city and groups' },
-                    { id: 'full',          label: 'Full reset',                   sub: 'Deletes everything, redirects to onboarding' },
+                    { id: 'messages_only', label: 'Clear messages & files only', sub: 'Keeps your name, phone and account' },
+                    { id: 'full',          label: 'Full reset',                   sub: 'Resets your profile & deletes your replies. Account stays active (other members\u2019 messages still reference it).' },
                   ].map(opt => (
                     <button key={opt.id} onClick={() => setClearMode(opt.id as any)}
                       className="w-full rounded-xl p-3 flex items-center gap-3 text-left transition-all"

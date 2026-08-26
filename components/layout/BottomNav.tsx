@@ -25,7 +25,7 @@ export default function BottomNav() {
     ? [
         { href: '/leader',          label: t('nav.dashboard'), icon: LayoutDashboard, exact: true },
         { href: '/leader/messages', label: t('nav.messages'),  icon: MessageSquare,   exact: false },
-        { href: '/profile',         label: t('nav.profile'),   icon: User,            exact: false },
+        { href: '/leader/profile',  label: t('nav.profile'),   icon: User,            exact: false },
       ]
     : [
         { href: '/home',      label: t('nav.home'),     icon: Home,         exact: false },

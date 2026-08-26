@@ -28,9 +28,19 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success('Data cleared successfully');
-      logout();
-      router.replace('/');
+
+      if (data.accountDeleted) {
+        // Account fully deleted — next auth treats this as a brand new user
+        // and sends them through onboarding again.
+        toast.success('Account fully reset');
+        logout();
+        router.replace('/');
+      } else {
+        // Data cleared but the account itself is untouched (messages_only,
+        // or a leader's full reset) — no need to force a logout.
+        toast.success(data.note || 'Data cleared successfully');
+        router.refresh();
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to clear data');
     } finally {
