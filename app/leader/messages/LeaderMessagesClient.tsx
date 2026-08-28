@@ -84,7 +84,7 @@ export default function LeaderMessagesClient() {
   const activeFilterCount = [filterSort !== 'newest', filterType !== 'all', !!filterCity].filter(Boolean).length;
 
   return (
-    <AppShell showNav={false}>
+    <AppShell>
       <PageHeader title="Messages" showBack
         subtitle={`${total} ${tab === 'unreplied' ? 'pending' : 'replied'}`}
       />

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
+import { runInBackground } from '@/lib/backgroundTask';
 
 export async function POST(req: NextRequest) {
   try {
@@ -86,18 +87,18 @@ export async function POST(req: NextRequest) {
       .update({ is_replied: true })
       .eq('id', message_id);
 
-    // Notify user via Telegram bot with HTML formatting
-    void (async () => {
-      try {
-        const senderTelegramId = (message.users as any)?.telegram_id;
-        if (senderTelegramId) {
-          const msg = reply_type === 'audio'
-            ? TelegramMessages.audioReplyReceived(leader.display_name)
-            : TelegramMessages.replyReceived(leader.display_name, content);
-          await sendTelegramMessage(senderTelegramId, msg);
-        }
-      } catch {}
-    })();
+    // Notify user via Telegram bot with HTML formatting.
+    // Single-recipient sends are quick, but still use runInBackground so a
+    // slow Telegram API response can't get killed before it finishes on Vercel.
+    runInBackground(async () => {
+      const senderTelegramId = (message.users as any)?.telegram_id;
+      if (senderTelegramId) {
+        const msg = reply_type === 'audio'
+          ? TelegramMessages.audioReplyReceived(leader.display_name)
+          : TelegramMessages.replyReceived(leader.display_name, content);
+        await sendTelegramMessage(senderTelegramId, msg);
+      }
+    });
 
     return NextResponse.json({ success: true, reply });
   } catch (err: any) {

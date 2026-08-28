@@ -39,13 +39,28 @@ export async function GET(req: NextRequest) {
     // Build reply map
     const replyMap = new Map((replies || []).map(r => [r.message_id, r]));
 
+    // Number audio replies chronologically (oldest = 1) so users always see
+    // the same stable "Audio Reply - N" label and matching downloaded
+    // filename, no matter which order the dashboard displays messages in.
+    const audioReplyNumbers = new Map<string, number>();
+    (replies || [])
+      .filter(r => r.reply_type === 'audio')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .forEach((r, i) => audioReplyNumbers.set(r.id, i + 1));
+
     // Merge — critically: use is_replied from DB (updated immediately on reply)
-    const enriched = messages.map(m => ({
-      ...m,
-      replies: replyMap.has(m.id) ? [replyMap.get(m.id)] : [],
-      // Double-check: if a reply exists, force is_replied=true even if DB hasn't updated yet
-      is_replied: m.is_replied || replyMap.has(m.id),
-    }));
+    const enriched = messages.map(m => {
+      const reply = replyMap.get(m.id);
+      const replyWithNumber = reply
+        ? { ...reply, audio_reply_number: reply.reply_type === 'audio' ? audioReplyNumbers.get(reply.id) : undefined }
+        : undefined;
+      return {
+        ...m,
+        replies: replyWithNumber ? [replyWithNumber] : [],
+        // Double-check: if a reply exists, force is_replied=true even if DB hasn't updated yet
+        is_replied: m.is_replied || replyMap.has(m.id),
+      };
+    });
 
     // Strict split — no message appears in both tabs
     const unreplied = enriched.filter(m => !m.is_replied);

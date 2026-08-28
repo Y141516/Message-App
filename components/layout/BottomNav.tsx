@@ -16,10 +16,10 @@ export default function BottomNav() {
 
   const navItems = role === 'admin'
     ? [
-        { href: '/admin',        label: 'Admin',         icon: Settings,       exact: true },
-        { href: '/admin/users',  label: t('nav.messages'),icon: User,          exact: false },
-        { href: '/admin/groups', label: 'Groups',        icon: LayoutDashboard,exact: false },
-        { href: '/profile',      label: t('nav.profile'), icon: User,          exact: false },
+        { href: '/admin',        label: 'Admin',           icon: Settings,       exact: true },
+        { href: '/admin/users',  label: t('nav.users'),    icon: User,           exact: false },
+        { href: '/admin/groups', label: t('nav.groups'),   icon: LayoutDashboard,exact: false },
+        { href: '/profile',      label: t('nav.profile'),  icon: User,           exact: false },
       ]
     : role === 'leader'
     ? [

@@ -90,6 +90,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === 'full') {
+      // Never allow an admin to fully delete their own account through this
+      // endpoint — admin access is set up by hand in the database (see
+      // README), and losing the only admin account would lock the whole
+      // org out of the admin panel with no self-service way back in.
+      if (user.role === 'admin') {
+        return NextResponse.json({
+          error: 'Full reset is disabled for admin accounts to prevent accidental lockout. Use "Clear messages & files only" instead, or ask another admin to manage your account.',
+        }, { status: 403 });
+      }
+
       if (user.role === 'leader' && leaderRowId) {
         // Delete replies this leader has authored to OTHER users' messages.
         // This is a real, visible loss for those recipients, but "full reset"

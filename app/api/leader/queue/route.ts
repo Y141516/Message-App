@@ -1,8 +1,14 @@
 export const dynamic = 'force-dynamic';
+// waitUntil() keeps the queue-open/close broadcast running after the
+// response is sent, but Vercel still caps total execution at maxDuration —
+// raise it so a broadcast to a few thousand users has room to finish.
+// Hobby plan caps this at 60s; Pro allows much higher (up to 800s).
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
+import { sendTelegramMessage, broadcastToTelegramUsers, TelegramMessages } from '@/lib/telegram';
+import { runInBackground } from '@/lib/backgroundTask';
 
 async function verifyLeader(telegram_id: string) {
   const { data } = await supabaseAdmin
@@ -68,8 +74,14 @@ export async function POST(req: NextRequest) {
 
       if (error) throw error;
 
-      // Notify all users — fire and forget
-      void notifyUsersQueueOpen(leaderRow.display_name, limit);
+      // BUG FIX: this was a bare `void notifyUsersQueueOpen(...)` — on Vercel
+      // that background work can get silently killed the instant the HTTP
+      // response is sent, since the platform tears down the function once it
+      // thinks the request is done. For a few thousand users batched 25-at-a-
+      // time with a 1s pause between batches, that's over a minute of work —
+      // most of it was at risk of never actually running. waitUntil() tells
+      // the platform to keep the function alive until this finishes.
+      runInBackground(() => notifyUsersQueueOpen(leaderRow.display_name, limit));
 
       return NextResponse.json({ success: true, queue });
 
@@ -84,12 +96,12 @@ export async function POST(req: NextRequest) {
 
       if (error) throw error;
 
-      // Notify users + send summary to leader
-      void notifyUsersQueueClosed(leaderRow.display_name, queue?.messages_received || 0);
-      void sendTelegramMessage(
+      // Notify users + send summary to leader — same background-work fix as above
+      runInBackground(() => notifyUsersQueueClosed(leaderRow.display_name, queue?.messages_received || 0));
+      runInBackground(() => sendTelegramMessage(
         telegram_id,
         TelegramMessages.queueSummary(leaderRow.display_name, queue?.messages_received || 0, queue?.message_limit || 0)
-      );
+      ));
 
       return NextResponse.json({ success: true, queue });
     }
@@ -106,10 +118,8 @@ async function notifyUsersQueueOpen(leaderName: string, limit: number) {
   if (!users?.length) return;
 
   const message = TelegramMessages.queueOpened(leaderName, limit);
-  for (let i = 0; i < users.length; i += 25) {
-    await Promise.allSettled(users.slice(i, i + 25).map(u => sendTelegramMessage(u.telegram_id, message)));
-    if (i + 25 < users.length) await new Promise(r => setTimeout(r, 1000));
-  }
+  const { sent, failed } = await broadcastToTelegramUsers(users.map(u => u.telegram_id), message);
+  console.log(`[queue open] notified ${sent}/${users.length} users (${failed} failed)`);
 }
 
 async function notifyUsersQueueClosed(leaderName: string, totalReceived: number) {
@@ -118,8 +128,6 @@ async function notifyUsersQueueClosed(leaderName: string, totalReceived: number)
   if (!users?.length) return;
 
   const message = TelegramMessages.queueClosed(leaderName, totalReceived);
-  for (let i = 0; i < users.length; i += 25) {
-    await Promise.allSettled(users.slice(i, i + 25).map(u => sendTelegramMessage(u.telegram_id, message)));
-    if (i + 25 < users.length) await new Promise(r => setTimeout(r, 1000));
-  }
+  const { sent, failed } = await broadcastToTelegramUsers(users.map(u => u.telegram_id), message);
+  console.log(`[queue close] notified ${sent}/${users.length} users (${failed} failed)`);
 }

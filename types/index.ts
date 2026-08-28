@@ -68,6 +68,7 @@ export interface Reply {
   reply_type: ReplyType;
   created_at: string;
   leader?: Leader;
+  audio_reply_number?: number;
 }
 
 export interface Vachan {

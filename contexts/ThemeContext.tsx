@@ -19,6 +19,8 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.vachan':      { en: 'Vachan',    hi: 'वचन' },
   'nav.profile':     { en: 'Profile',   hi: 'प्रोफाइल' },
   'nav.dashboard':   { en: 'Dashboard', hi: 'डैशबोर्ड' },
+  'nav.users':       { en: 'Users',     hi: 'उपयोगकर्ता' },
+  'nav.groups':      { en: 'Groups',    hi: 'ग्रुप' },
   'home.greeting':   { en: 'Jay Bhagwanji', hi: 'जय भगवानजी' },
   'home.groups':     { en: 'YOUR GROUPS', hi: 'आपके ग्रुप' },
   'home.verified':   { en: 'Verified',  hi: 'सत्यापित' },

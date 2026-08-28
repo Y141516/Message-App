@@ -75,7 +75,7 @@ export default function AdminUsersClient() {
   }[role] || 'text-gray-400 bg-gray-500/10 border-gray-500/30');
 
   return (
-    <AppShell showNav={false}>
+    <AppShell>
       <PageHeader title="Manage Users" subtitle={`${total} total`} showBack />
 
       <div className="px-4 pb-6 max-w-lg mx-auto space-y-3">

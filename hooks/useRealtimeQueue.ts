@@ -20,6 +20,18 @@ type Callback = () => void | Promise<void>;
  *   after reconnecting, to pick up anything missed while the socket was
  *   down — this covers the gap without needing a paid plan.
  */
+// Full jitter backoff — instead of every disconnected client retrying at
+// the exact same synchronized delays (1s, 2s, 4s...), each one picks a
+// random point within that window. This matters a lot at scale: if
+// Supabase briefly restarts and drops, say, 1,000 connected clients at
+// once, synchronized backoff means all 1,000 hammer the reconnect endpoint
+// at the same few instants — jitter spreads that load out smoothly instead.
+function backoffWithJitter(attempt: number) {
+  const cap = 15000;
+  const base = 1000 * Math.pow(2, attempt);
+  return Math.random() * Math.min(cap, base);
+}
+
 function useRealtimeTables(
   tables: string[],
   onAnyChange: Callback,
@@ -72,7 +84,7 @@ function useRealtimeTables(
             // Exponential backoff, capped at 15s, so a dropped connection
             // (e.g. Telegram WebView backgrounded) recovers on its own.
             clearRetryTimer();
-            const delay = Math.min(15000, 1000 * Math.pow(2, retryRef.current));
+            const delay = backoffWithJitter(retryRef.current);
             retryRef.current += 1;
             retryTimerRef.current = setTimeout(connect, delay);
           }
@@ -81,7 +93,7 @@ function useRealtimeTables(
         channelRef.current = channel;
       } catch {
         clearRetryTimer();
-        const delay = Math.min(15000, 1000 * Math.pow(2, retryRef.current));
+        const delay = backoffWithJitter(retryRef.current);
         retryRef.current += 1;
         retryTimerRef.current = setTimeout(connect, delay);
       }

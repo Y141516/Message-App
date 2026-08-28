@@ -40,7 +40,13 @@ export function usePolling(
 
   const start = useCallback(() => {
     stop();
-    timerRef.current = setInterval(run, interval);
+    // Small random jitter (±15%) on the interval — otherwise many clients
+    // that all mounted around the same moment (e.g. hundreds of people
+    // opening the app right as a queue opens) end up polling in near-perfect
+    // sync, creating periodic load spikes instead of smooth, spread-out
+    // traffic.
+    const jittered = interval * (0.85 + Math.random() * 0.3);
+    timerRef.current = setInterval(run, jittered);
   }, [interval, stop, run]);
 
   useEffect(() => {

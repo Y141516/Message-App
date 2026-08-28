@@ -1,8 +1,10 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
+import { sendTelegramMessage, broadcastToTelegramUsers, TelegramMessages } from '@/lib/telegram';
+import { runInBackground } from '@/lib/backgroundTask';
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,46 +37,9 @@ export async function POST(req: NextRequest) {
       isAlwaysOpenMember = (memberGroups || []).some((ug: any) => ug.groups?.always_open === true);
     }
 
-    // Regular message: check queue
-    let bypassedClosedQueue = false;
-    if (!is_emergency) {
-      const { data: queue } = await supabaseAdmin
-        .from('queues')
-        .select('id, is_open, message_limit, messages_received')
-        .eq('leader_id', leader_id).eq('is_open', true).single();
-
-      if (!queue) {
-        // No open queue right now. Always-open group members (e.g.
-        // Foreigners) can still send — everyone else is blocked as before.
-        if (!isAlwaysOpenMember) {
-          return NextResponse.json({ error: 'Queue is closed' }, { status: 400 });
-        }
-        bypassedClosedQueue = true;
-      } else {
-        if (queue.messages_received >= queue.message_limit)
-          return NextResponse.json({ error: 'Queue limit reached' }, { status: 400 });
-
-        // While a queue IS actively open, everyone — including always-open
-        // group members — is still limited to one message per session. This
-        // keeps things fair during a live queue; the always-open exemption
-        // only kicks in once the queue has closed.
-        const { data: existing } = await supabaseAdmin
-          .from('messages').select('id')
-          .eq('sender_id', user.id).eq('queue_id', queue.id).single();
-        if (existing)
-          return NextResponse.json({ error: 'already_sent', message: 'You already sent a message in this queue.' }, { status: 400 });
-      }
-    }
-
-    // Get queue_id
-    let queue_id: string | null = null;
-    if (!is_emergency && !bypassedClosedQueue) {
-      const { data: q } = await supabaseAdmin
-        .from('queues').select('id').eq('leader_id', leader_id).eq('is_open', true).single();
-      queue_id = q?.id || null;
-    }
-
-    // Upload media
+    // Upload media BEFORE the atomic insert step — storage uploads aren't
+    // part of the DB transaction, so we want them done first and just pass
+    // the resulting URLs in.
     let media_url: string | null = null;
     if (media_file && media_file.size > 0) {
       const bytes = await media_file.arrayBuffer();
@@ -88,7 +53,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Upload voice note
     let user_voice_url: string | null = null;
     if (voice_file && voice_file.size > 0) {
       const bytes = await voice_file.arrayBuffer();
@@ -102,80 +66,117 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Insert message — triggers Realtime instantly on leader's screen
-    const { data: message, error: msgError } = await supabaseAdmin
-      .from('messages')
-      .insert({
-        sender_id: user.id,
-        leader_id,
-        queue_id,
-        content: content?.trim() || null,
-        message_type,
-        media_url,
-        media_type: media_type || null,
-        user_voice_url,
-        is_emergency,
-        is_replied: false,
-      })
-      .select()
-      .single();
+    // HEAVY-LOAD FIX: the queue-open check, message-limit check, duplicate
+    // check, and the actual insert now all happen atomically inside one
+    // Postgres function (see MIGRATION_V4.sql) using SELECT ... FOR UPDATE
+    // to lock the queue row. Previously these were separate read-then-write
+    // steps in application code — under heavy concurrent traffic (e.g. a
+    // queue opening to hundreds of people at once), many requests could all
+    // pass the "is there room?" check at nearly the same instant, before any
+    // of their inserts landed, letting the queue overshoot its limit and
+    // occasionally letting the same sender in twice. Locking the row makes
+    // concurrent submissions for the same leader safely queue up instead of
+    // racing — each one resolves in milliseconds, so this stays fast even
+    // under a traffic spike.
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('submit_message', {
+      p_sender_id: user.id,
+      p_leader_id: leader_id,
+      p_content: content?.trim() || null,
+      p_message_type: message_type,
+      p_media_url: media_url,
+      p_media_type: media_type || null,
+      p_user_voice_url: user_voice_url,
+      p_is_emergency: is_emergency,
+      p_is_always_open_member: isAlwaysOpenMember,
+    });
 
-    if (msgError) throw msgError;
+    if (rpcError) throw rpcError;
 
-    // Notify leader of emergency with HTML formatting
-    if (is_emergency) {
-      void (async () => {
-        try {
-          const { data: leaderData } = await supabaseAdmin
-            .from('leaders').select('display_name, users(telegram_id)').eq('id', leader_id).single();
-          if (leaderData?.users) {
-            const labels: Record<string, string> = {
-              emergency_medical:   '🏥 <b>MEDICAL EMERGENCY</b>',
-              emergency_transport: '🚗 <b>TRANSPORT EMERGENCY</b>',
-              emergency_urgent:    '🚨 <b>URGENT EMERGENCY</b>',
-            };
-            await sendTelegramMessage(
-              (leaderData.users as any).telegram_id,
-              TelegramMessages.emergencyReceived(
-                labels[message_type] || '🚨 <b>EMERGENCY</b>',
-                user.name,
-                content,
-                !!user_voice_url
-              )
-            );
-          }
-        } catch {}
-      })();
+    const result = rpcResult as { message_id: string | null; queue_id: string | null; error: string | null };
+
+    if (result.error === 'queue_closed') {
+      return NextResponse.json({ error: 'Queue is closed' }, { status: 400 });
+    }
+    if (result.error === 'queue_limit_reached') {
+      return NextResponse.json({ error: 'Queue limit reached' }, { status: 400 });
+    }
+    if (result.error === 'already_sent') {
+      return NextResponse.json({ error: 'already_sent', message: 'You already sent a message in this queue.' }, { status: 400 });
+    }
+    if (!result.message_id) {
+      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
     }
 
-    // Check queue auto-close
-    if (queue_id) {
-      void (async () => {
-        try {
-          const { data: uq } = await supabaseAdmin
-            .from('queues')
-            .select('is_open, messages_received, message_limit, leaders(display_name, users(telegram_id))')
-            .eq('id', queue_id!).single();
+    const { data: message } = await supabaseAdmin
+      .from('messages').select('*').eq('id', result.message_id).single();
 
-          if (uq && !uq.is_open) {
-            const leaderTgId = (uq.leaders as any)?.users?.telegram_id;
-            const leaderName = (uq.leaders as any)?.display_name;
-            if (leaderTgId) {
-              await sendTelegramMessage(leaderTgId,
-                TelegramMessages.queueAutoClose(uq.message_limit, uq.messages_received));
-            }
-            const { data: allUsers } = await supabaseAdmin
-              .from('users').select('telegram_id').eq('role', 'user').eq('is_active', true);
-            if (allUsers?.length && leaderName) {
-              const msg = TelegramMessages.userNotInQueue(leaderName);
-              for (let i = 0; i < allUsers.length; i += 25) {
-                void Promise.allSettled(allUsers.slice(i, i + 25).map((u: any) => sendTelegramMessage(u.telegram_id, msg)));
-                if (i + 25 < allUsers.length) await new Promise(r => setTimeout(r, 1000));
-              }
-            }
+    const queue_id = result.queue_id;
+
+    // Notify leader of emergency with HTML formatting — kept alive after
+    // the response via runInBackground (see lib/backgroundTask.ts).
+    if (is_emergency) {
+      runInBackground(async () => {
+        const { data: leaderData } = await supabaseAdmin
+          .from('leaders').select('display_name, users(telegram_id)').eq('id', leader_id).single();
+        if (leaderData?.users) {
+          const labels: Record<string, string> = {
+            emergency_medical:   '🏥 <b>MEDICAL EMERGENCY</b>',
+            emergency_transport: '🚗 <b>TRANSPORT EMERGENCY</b>',
+            emergency_urgent:    '🚨 <b>URGENT EMERGENCY</b>',
+          };
+          await sendTelegramMessage(
+            (leaderData.users as any).telegram_id,
+            TelegramMessages.emergencyReceived(
+              labels[message_type] || '🚨 <b>EMERGENCY</b>',
+              user.name,
+              content,
+              !!user_voice_url
+            )
+          );
+        }
+      });
+    }
+
+    // Check queue auto-close and notify everyone who missed it.
+    //
+    // BUG FIX: this used to run unconditionally on EVERY message that landed
+    // after the queue closed. Under heavy concurrent traffic, many requests
+    // can land in the moments right around the queue hitting its limit —
+    // each one would independently see "queue just closed" and each kick
+    // off its own full broadcast to every single user, multiplying an
+    // already-expensive mass-notification job. `auto_close_notified` lets
+    // exactly ONE request claim this job, atomically, via a conditional
+    // UPDATE — everyone else's UPDATE simply matches zero rows and they
+    // correctly do nothing.
+    if (queue_id) {
+      runInBackground(async () => {
+        const { data: claimed } = await supabaseAdmin
+          .from('queues')
+          .update({ auto_close_notified: true })
+          .eq('id', queue_id)
+          .eq('is_open', false)
+          .eq('auto_close_notified', false)
+          .select('id, messages_received, message_limit, leaders(display_name, users(telegram_id))')
+          .single();
+
+        if (!claimed) return; // queue still open, or another request already claimed this
+
+        const leaderTgId = (claimed.leaders as any)?.users?.telegram_id;
+        const leaderName = (claimed.leaders as any)?.display_name;
+
+        if (leaderTgId) {
+          await sendTelegramMessage(leaderTgId,
+            TelegramMessages.queueAutoClose(claimed.message_limit, claimed.messages_received));
+        }
+
+        if (leaderName) {
+          const { data: allUsers } = await supabaseAdmin
+            .from('users').select('telegram_id').eq('role', 'user').eq('is_active', true);
+          if (allUsers?.length) {
+            await broadcastToTelegramUsers(allUsers.map(u => u.telegram_id), TelegramMessages.userNotInQueue(leaderName));
           }
-        } catch {}
-      })();
+        }
+      });
     }
 
     return NextResponse.json({ success: true, message });

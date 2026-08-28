@@ -1,8 +1,12 @@
 export const dynamic = 'force-dynamic';
+// Same reasoning as /api/leader/queue — the announcement broadcast runs via
+// waitUntil() after the response is sent, so it needs room within maxDuration.
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { sendTelegramMessage, TelegramMessages } from '@/lib/telegram';
+import { TelegramMessages, broadcastToTelegramUsers } from '@/lib/telegram';
+import { runInBackground } from '@/lib/backgroundTask';
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,8 +92,9 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // Broadcast via Telegram bot
-    void broadcastAnnouncement(user.name, title, body, target, group_ids);
+    // Broadcast via Telegram bot — kept alive after the response via waitUntil
+    // (see lib/backgroundTask.ts) since this can take a while for a large group
+    runInBackground(() => broadcastAnnouncement(user.name, title, body, target, group_ids));
     await supabaseAdmin.from('announcements').update({ telegram_sent: true }).eq('id', announcement.id);
 
     return NextResponse.json({ success: true, announcement });
@@ -148,11 +153,6 @@ async function broadcastAnnouncement(
 
   // HTML formatted announcement message
   const message = TelegramMessages.announcement(senderName, title, body);
-
-  for (let i = 0; i < users.length; i += 25) {
-    await Promise.allSettled(users.slice(i, i + 25).map((u: any) =>
-      sendTelegramMessage(u.telegram_id, message)
-    ));
-    if (i + 25 < users.length) await new Promise(r => setTimeout(r, 1000));
-  }
+  const { sent, failed } = await broadcastToTelegramUsers(users.map((u: any) => u.telegram_id), message);
+  console.log(`[announcement] notified ${sent}/${users.length} users (${failed} failed)`);
 }

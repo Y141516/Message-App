@@ -73,12 +73,12 @@ export default function DashboardClient() {
 
   const activeFilterCount = [filterLeader !== 'all', filterSort !== 'newest', filterType !== 'all'].filter(Boolean).length;
 
-  const downloadAudio = (audioUrl: string, messageId: string) => {
-    // Detect the real file extension from the URL instead of hardcoding .mp3 —
-    // recordings are stored as .webm, so a wrong extension breaks playback for
-    // apps that check the file extension.
-    const ext = audioUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'webm';
-    const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}&filename=${encodeURIComponent(`reply-${messageId}.${ext}`)}`;
+  const downloadAudio = (messageId: string) => {
+    // Real mp3 transcode (the original recording is .webm) + the same
+    // "Audio Reply - N" numbering shown in the reply card, via the new
+    // /api/download-audio-reply endpoint. Falls back server-side to the
+    // original codec if transcoding isn't available, so this never breaks.
+    const proxyUrl = `/api/download-audio-reply?message_id=${encodeURIComponent(messageId)}&telegram_id=${encodeURIComponent(user!.telegram_id)}`;
     // window.open is the only reliable download trigger inside Telegram's WebApp sandbox
     window.open(proxyUrl, '_blank');
     toast.success(t('dashboard.download_audio'));
@@ -260,7 +260,7 @@ function CurrentMessageCard({ message, t, isLight }: { message: Message; t: any;
 function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDownloadAudio, onDownloadPDF, t, isLight }: {
   message: Message; index: number; playingAudio: string | null; isLight: boolean;
   setPlayingAudio: (id: string | null) => void;
-  onDownloadAudio: (url: string, id: string) => void;
+  onDownloadAudio: (id: string) => void;
   onDownloadPDF: (messageId: string) => void;
   t: (k: string) => string;
 }) {
@@ -312,11 +312,17 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
           </div>
 
           {reply.reply_type === 'audio' && reply.audio_url ? (
-            <AudioPlayer url={reply.audio_url} messageId={message.id}
-              isPlaying={playingAudio === message.id}
-              onToggle={(id: string) => setPlayingAudio(playingAudio === id ? null : id)}
-              onDownload={() => onDownloadAudio(reply.audio_url, message.id)}
-              isLight={isLight} t={t} />
+            <>
+              <AudioPlayer url={reply.audio_url} messageId={message.id} number={reply.audio_reply_number}
+                isPlaying={playingAudio === message.id}
+                onToggle={(id: string) => setPlayingAudio(playingAudio === id ? null : id)}
+                onDownload={() => onDownloadAudio(message.id)}
+                isLight={isLight} t={t} />
+              <button onClick={() => onDownloadPDF(message.id)}
+                className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                <Download className="w-3.5 h-3.5" /> {t('dashboard.download_pdf')}
+              </button>
+            </>
           ) : (
             <>
               <div className="rounded-xl p-4 mb-3"
@@ -335,8 +341,8 @@ function MessageReplyCard({ message, index, playingAudio, setPlayingAudio, onDow
   );
 }
 
-function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, isLight, t }: {
-  url: string; messageId: string; isPlaying: boolean; isLight: boolean;
+function AudioPlayer({ url, messageId, number, isPlaying, onToggle, onDownload, isLight, t }: {
+  url: string; messageId: string; number?: number; isPlaying: boolean; isLight: boolean;
   onToggle: (id: string) => void; onDownload: () => void; t: (k: string) => string;
 }) {
   const [progress, setProgress] = useState(0);
@@ -370,7 +376,7 @@ function AudioPlayer({ url, messageId, isPlaying, onToggle, onDownload, isLight,
         </button>
         <div className="flex-1">
           <div className="flex justify-between mb-1.5">
-            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Audio Reply</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{number ? `Audio Reply - ${number}` : 'Audio Reply'}</span>
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{fmt(duration)}</span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>

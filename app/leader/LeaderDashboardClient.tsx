@@ -135,7 +135,7 @@ export default function LeaderDashboardClient() {
   }
 
   return (
-    <AppShell showNav={false}>
+    <AppShell>
       <PageHeader title="Leader Dashboard" subtitle={`Logged in as ${user?.name}`} showBack />
 
       <div className="px-4 pb-8 max-w-lg mx-auto space-y-4">

@@ -112,7 +112,7 @@ export default function AdminGroupsClient() {
   };
 
   return (
-    <AppShell showNav={false}>
+    <AppShell>
       <PageHeader title="Manage Groups" showBack />
       <div className="px-4 pb-6 max-w-lg mx-auto space-y-4">
 

@@ -75,6 +75,67 @@ export async function sendTelegramMessage(
 }
 
 /**
+ * Broadcasts one message to many Telegram users as fast as Telegram's Bot
+ * API safely allows (~28 msgs/sec — just under Telegram's documented ~30/sec
+ * global rate limit), instead of a flat "25 at a time, then sleep exactly
+ * 1 full second" pattern that wastes time waiting even when the batch itself
+ * already took a while.
+ *
+ * This matters a lot for something like "queue just opened" — for a few
+ * thousand recipients this can still take well over a minute in total
+ * because Telegram itself won't accept messages faster than that, no matter
+ * how the code is written. This just makes sure none of that time is wasted
+ * beyond what Telegram actually requires, and that a 429 (rate limited)
+ * response backs off and retries instead of silently dropping that user.
+ */
+export async function broadcastToTelegramUsers(
+  telegramIds: string[],
+  text: string,
+  opts: { batchSize?: number; targetMsgsPerSec?: number } = {}
+): Promise<{ sent: number; failed: number }> {
+  const batchSize = opts.batchSize ?? 28;
+  const targetMsgsPerSec = opts.targetMsgsPerSec ?? 28;
+  const minBatchDurationMs = (batchSize / targetMsgsPerSec) * 1000;
+
+  let sent = 0;
+  let failed = 0;
+
+  for (let i = 0; i < telegramIds.length; i += batchSize) {
+    const batch = telegramIds.slice(i, i + batchSize);
+    const batchStart = Date.now();
+
+    const results = await Promise.allSettled(
+      batch.map(id => sendWithRetry(id, text))
+    );
+    results.forEach(r => { if (r.status === 'fulfilled' && r.value) sent++; else failed++; });
+
+    // Only wait out whatever's left of the target pace — if the network
+    // calls themselves already took the full budget, don't add extra delay.
+    const elapsed = Date.now() - batchStart;
+    const remaining = minBatchDurationMs - elapsed;
+    if (remaining > 0 && i + batchSize < telegramIds.length) {
+      await new Promise(r => setTimeout(r, remaining));
+    }
+  }
+
+  return { sent, failed };
+}
+
+async function sendWithRetry(chatId: string, text: string, retriesLeft = 2): Promise<boolean> {
+  const data = await sendTelegramMessage(chatId, text);
+  if (data?.ok) return true;
+
+  // Telegram returned 429 — respect retry_after and try again once or twice
+  if (data?.error_code === 429 && retriesLeft > 0) {
+    const retryAfterSec = data?.parameters?.retry_after ?? 1;
+    await new Promise(r => setTimeout(r, retryAfterSec * 1000));
+    return sendWithRetry(chatId, text, retriesLeft - 1);
+  }
+
+  return false;
+}
+
+/**
  * Pre-built HTML message templates — properly formatted for Telegram HTML mode.
  */
 export const TelegramMessages = {

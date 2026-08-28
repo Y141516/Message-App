@@ -53,7 +53,7 @@ export default function AdminClient() {
   const maxCount = Math.max(...chartData.map(d => d.count), 1);
 
   return (
-    <AppShell showNav={false}>
+    <AppShell>
       <PageHeader title="Admin Panel" subtitle={`Logged in as ${user?.name}`} showBack={false} helpKey="home" />
 
       <div className="px-4 pb-8 max-w-lg mx-auto space-y-4">

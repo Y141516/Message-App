@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       .select(`
         id, content, created_at, sender_id,
         leaders(display_name),
-        replies(content, reply_type, created_at)
+        replies(id, content, reply_type, created_at)
       `)
       .eq('id', messageId)
       .eq('sender_id', user.id)
@@ -44,9 +44,25 @@ export async function GET(req: NextRequest) {
 
     const leaderName = (message.leaders as any)?.display_name || 'Leader';
     const userMessage = message.content || '(No text content)';
-    const replyContent = reply.reply_type === 'audio'
-      ? '[Audio reply — open the app to listen]'
-      : (reply.content || '');
+
+    let replyContent: string;
+    if (reply.reply_type === 'audio') {
+      // Same numbering scheme as /api/dashboard and /api/download-audio-reply,
+      // so the number referenced here always matches the downloaded filename.
+      const { data: userMessages } = await supabaseAdmin.from('messages').select('id').eq('sender_id', user.id);
+      const userMessageIds = (userMessages || []).map((m: any) => m.id);
+      const { data: allAudioReplies } = await supabaseAdmin
+        .from('replies')
+        .select('id, created_at')
+        .eq('reply_type', 'audio')
+        .in('message_id', userMessageIds.length ? userMessageIds : ['00000000-0000-0000-0000-000000000000']);
+      const sorted = (allAudioReplies || []).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const number = sorted.findIndex((r: any) => r.id === reply.id) + 1 || 1;
+      replyContent = `[This was an audio reply — "Audio Reply - ${number}". Download the corresponding audio file from the app to listen.]`;
+    } else {
+      replyContent = reply.content || '';
+    }
+
     const messageDate = new Date(message.created_at).toLocaleString('en-IN');
     const replyDate = new Date(reply.created_at).toLocaleString('en-IN');
 
